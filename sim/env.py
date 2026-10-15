@@ -1,4 +1,4 @@
-"""Gymnasium environment: drive a procedurally generated road to the end without crashing.
+"""Driving environment with the Gymnasium interface: drive a procedurally generated road to the end without crashing.
 
     env = DriveEnv(sensors={"lidar": {"beams": 16}}, scenario={"traffic": 0.2})
     obs, info = env.reset(seed=0)
@@ -6,9 +6,17 @@
     env.configure(sensors={"gps": {"on": True}, "nav": {"on": False}})  # takes effect next step
 
 Run `python -m sim.env` for a speed check and a lane-follower sanity run.
+
+Gymnasium is only needed for training. The browser (Pyodide) can't import it
+because it has no multiprocessing, so without it the env is a plain class with
+the same methods.
 """
-import gymnasium as gym
 import numpy as np
+
+try:
+    import gymnasium as gym
+except ImportError:
+    gym = None
 
 from .sensors import DEFAULTS, OBS_SIZE, merge, observe
 from .car import WIDTH, Car, MAX_SPEED, box_segments, collides
@@ -26,15 +34,17 @@ CRASH_PENALTY, OFF_ROAD_PENALTY, SUCCESS_REWARD = 5.0, 5.0, 10.0
 OFF_ROAD_TOLERANCE = 0.3  # metres a wheel may stray past the road edge
 
 
-class DriveEnv(gym.Env):
+class DriveEnv(gym.Env if gym else object):
     metadata = {"render_modes": []}
+    rng = None
 
     def __init__(self, sensors=None, scenario=None):
         self.sensor_cfg = merge(DEFAULTS, sensors)
         self.scenario = dict(SCENARIO)
         self.configure(scenario=scenario)
-        self.observation_space = gym.spaces.Box(0.0, 1.0, (OBS_SIZE, ), np.float32)
-        self.action_space = gym.spaces.Box(-1.0, 1.0, (2, ), np.float32)
+        if gym:
+            self.observation_space = gym.spaces.Box(0.0, 1.0, (OBS_SIZE, ), np.float32)
+            self.action_space = gym.spaces.Box(-1.0, 1.0, (2, ), np.float32)
         self.debug = {}
 
     def configure(self, sensors=None, scenario=None):
@@ -46,12 +56,10 @@ class DriveEnv(gym.Env):
             lo, hi = SCENARIO_RANGES[key]
             self.scenario[key] = int(np.clip(v, lo, hi)) if key == "lanes" else float(np.clip(v, lo, hi))
 
-    @property
-    def rng(self):
-        return self.np_random
-
     def reset(self, seed=None, options=None):
-        super().reset(seed=seed)
+        # Same seeding rule as gymnasium: a seed restarts the generator, no seed carries on.
+        if seed is not None or self.rng is None:
+            self.rng = np.random.default_rng(seed)
         sc = self.scenario
         self.road = Road(self.rng, sc["lanes"], sc["complexity"])
         x, y, yaw = self.road.pose_at(START_S, self.road.lane_center(self.rng.integers(sc["lanes"])))
