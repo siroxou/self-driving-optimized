@@ -5,6 +5,7 @@ generalist: some specialist runs land on a worse policy than the generalist alre
 
     python -m train.specialists              # train any missing ones, benchmark all, write manifest
     python -m train.specialists --manifest   # only re-benchmark and rewrite the manifest
+    python -m train.specialists --finetune 2000000   # continue training every specialist
 
 Each specialist is a normal `train.train` run on a fixed sensor set (about 5 minutes).
 Models go to web/models/specialist-<sensors>.npz; the manifest is web/models/specialists.json.
@@ -42,16 +43,23 @@ def key(spec):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--manifest", action="store_true", help="skip training")
+    p.add_argument("--finetune", type=int, help="continue each existing specialist for this many steps (lr 1e-4)")
     p.add_argument("--episodes", type=int, default=50)
     a = p.parse_args()
 
     for spec in SETS:
         name = f"specialist-{key(spec)}"
-        if a.manifest or (MODELS / f"{name}.npz").exists():
+        cmd = [sys.executable, "-m", "train.train", "--name", name, "--sensors", spec]
+        if a.manifest:
             continue
+        if a.finetune:
+            cmd += ["--steps", str(a.finetune), "--resume", f"runs/{name}/model.zip", "--lr", "1e-4"]
+        elif (MODELS / f"{name}.npz").exists():
+            continue
+        else:
+            cmd += ["--steps", str(STEPS)]
         print(f"training {name}", flush=True)
-        subprocess.run([sys.executable, "-m", "train.train", "--name", name, "--sensors", spec, "--steps", str(STEPS)],
-                       check=True, stdout=subprocess.DEVNULL)
+        subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
 
     entries = []
     for spec in SETS:

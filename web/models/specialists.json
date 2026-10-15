@@ -8,7 +8,7 @@
     ],
     "model": "generalist",
     "success": 0.92,
-    "specialist": 0.36,
+    "specialist": 0.5,
     "generalist": 0.92
   },
   {
@@ -18,8 +18,8 @@
       "lidar"
     ],
     "model": "specialist-odom-nav-lidar",
-    "success": 0.9,
-    "specialist": 0.9,
+    "success": 0.92,
+    "specialist": 0.92,
     "generalist": 0.56
   },
   {
@@ -43,8 +43,8 @@
       "radar"
     ],
     "model": "specialist-odom-lane-nav-lidar-sonar-radar",
-    "success": 0.78,
-    "specialist": 0.78,
+    "success": 0.86,
+    "specialist": 0.86,
     "generalist": 0.36
   },
   {
@@ -55,8 +55,8 @@
       "radar"
     ],
     "model": "specialist-odom-lane-nav-radar",
-    "success": 0.66,
-    "specialist": 0.66,
+    "success": 0.8,
+    "specialist": 0.8,
     "generalist": 0.04
   },
   {
@@ -78,8 +78,8 @@
       "radar"
     ],
     "model": "specialist-odom-nav-sonar-radar",
-    "success": 0.6,
-    "specialist": 0.6,
+    "success": 0.68,
+    "specialist": 0.68,
     "generalist": 0.0
   },
   {
@@ -87,8 +87,8 @@
       "lidar"
     ],
     "model": "specialist-lidar",
-    "success": 0.5,
-    "specialist": 0.5,
+    "success": 0.7,
+    "specialist": 0.7,
     "generalist": 0.36
   }
 ]

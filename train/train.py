@@ -48,7 +48,7 @@ def sample_scenario(rng):
     return {
         "lanes": int(rng.integers(lanes[0], lanes[1] + 1)),
         "complexity": rng.uniform(*SCENARIO_RANGES["complexity"]),
-        "traffic": rng.uniform(0.0, 0.3),
+        "traffic": rng.uniform(*SCENARIO_RANGES["traffic"]),  # the full slider range, up to 0.5
         "parked": rng.uniform(0.0, 0.5),
     }
 
