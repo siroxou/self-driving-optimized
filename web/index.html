@@ -33,7 +33,12 @@
   <aside id="panel" aria-label="Controls">
     <section>
       <h2>Driver</h2>
-      <p class="note">The car is driven by a reference lane follower that reads the simulator directly. Sensor switches change what's shown, not how it drives. Trained models that actually depend on the sensors arrive in Phase 2.</p>
+      <div class="segmented" role="group" aria-label="Driver">
+        <button type="button" data-driver="generalist" aria-pressed="true">Trained</button>
+        <button type="button" data-driver="specialist" aria-pressed="false">Specialist</button>
+        <button type="button" data-driver="reference" aria-pressed="false">Reference</button>
+      </div>
+      <p class="note" id="driver-note"></p>
     </section>
 
     <section>

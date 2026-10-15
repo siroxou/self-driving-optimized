@@ -14,6 +14,12 @@ const SETTING_LABELS = {
   range: "range (m)", jitter: "jitter (m)", drift: "drift (m/step)",
 };
 const SCENARIO_LABELS = { lanes: "lanes", complexity: "bendiness", traffic: "traffic", parked: "parked share" };
+const DRIVER_NOTES = {
+  generalist: "A neural network trained with random sensor setups. It only sees the sensors switched on below, so turn them off and watch it cope, or not.",
+  specialist: "A neural network trained only with odometry, lidar and exact route. Other sensors are noise to it; switch off everything else for a fair test.",
+  reference: "A hand-written lane follower that reads the simulator directly. It ignores the sensors, so switches change only what's drawn.",
+  missing: "That model hasn't been trained yet, so the reference lane follower is driving.",
+};
 const END_TEXT = { crash: "Crashed", out_of_road: "Left the road", success: "Arrived", timeout: "Out of time" };
 
 const v3 = (x, y, h = 0) => new THREE.Vector3(x, h, -y);
@@ -326,7 +332,10 @@ worker.onmessage = ({ data: msg }) => {
     $("loading-text").textContent = `Couldn't start the simulator: ${msg.text}`;
   } else if (msg.type === "settings") {
     buildControls(JSON.parse(msg.data));
+    setDriver("generalist");
     reset();
+  } else if (msg.type === "driver") {
+    $("driver-note").textContent = DRIVER_NOTES[msg.ok ? msg.name : "missing"];
   } else if (msg.type === "road") {
     const road = JSON.parse(msg.data);
     buildRoad(road);
@@ -346,6 +355,12 @@ $("seed").addEventListener("change", (e) => {
   seed = Math.max(0, Math.floor(Number(e.target.value) || 0));
   reset();
 });
+
+function setDriver(name) {
+  pressGroup("data-driver", document.querySelector(`[data-driver="${name}"]`));
+  worker.postMessage({ type: "driver", name });
+}
+document.querySelectorAll("[data-driver]").forEach((b) => b.addEventListener("click", () => setDriver(b.dataset.driver)));
 
 function pressGroup(attr, button) {
   document.querySelectorAll(`[${attr}]`).forEach((b) => b.setAttribute("aria-pressed", String(b === button)));

@@ -9,10 +9,19 @@ import numpy as np
 
 from sim import expert
 from sim.env import SCENARIO, SCENARIO_RANGES, DriveEnv
+from sim.policy import Policy
 from sim.sensors import DEFAULTS, RANGES
 from sim.world import LANE_WIDTH
 
 env = DriveEnv()
+policy = None  # None = reference lane follower
+obs = None
+
+
+def load_policy(path=None):
+    """Drive with the exported model at `path`, or the reference lane follower if None."""
+    global policy
+    policy = Policy(path) if path else None
 
 
 def settings():
@@ -25,8 +34,9 @@ def _r(a):
 
 
 def reset(seed, scenario_json="{}"):
+    global obs
     env.configure(scenario=json.loads(scenario_json))
-    env.reset(seed=int(seed))
+    obs, _ = env.reset(seed=int(seed))
     r = env.road
     every = slice(None, None, 2)
     lane_lines = [(r.pts + r.normal * (-r.width / 2 + LANE_WIDTH * k))[every] for k in range(1, r.lanes)]
@@ -47,8 +57,9 @@ def configure(sensors_json):
 
 
 def step():
+    global obs
     if env.status == "driving":
-        env.step(expert.act(env))
+        obs, *_ = env.step(policy.act(obs) if policy else expert.act(env))
     return frame()
 
 
