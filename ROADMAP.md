@@ -58,7 +58,7 @@ Still worth trying:
 - [ ] Larger network (3 × 512) for the generalist
 - [ ] Warm-start the generalist from the specialist instead of from scratch
 
-## Phase 3: Browser MVP ← deployed, exit check pending
+## Phase 3: Browser MVP ← deployed, exit check passed on a fast laptop
 
 The 3D viewer (`web/`) runs the real `sim/` in the page, driven by a trained network by default.
 
@@ -74,6 +74,8 @@ The 3D viewer (`web/`) runs the real `sim/` in the page, driven by a trained net
 - [x] GitHub Pages deploy through Actions: live at https://siroxou.github.io/self-driving-optimized/web/
 
 **Exit:** the public URL loads in under 10 s on broadband, runs at 30 fps on a mid-range laptop, and switching any sensor visibly changes how the car drives.
+
+Measured on the live site in a fresh Chrome profile (empty cache): ready in **2.2 s**, **121 fps** (the display's refresh limit), at both laptop and phone sizes, with no page errors. Switching to the sonar + radar preset loads its specialist, which drives far more cautiously. Caveat: measured on a fast laptop (Apple M5 Pro), with the phone size emulated there too. A check on a mid-range laptop and a real phone is still to do.
 
 ## Phase 4: Tinkering depth
 
