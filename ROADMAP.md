@@ -32,7 +32,7 @@ Each phase ends with an exit check that has to pass before the next one starts.
 
 Measured with `python -m sim.env` on an Apple Silicon laptop: **2,825 steps/s** with every sensor on, and the lane follower finished **30/30 routes** at each traffic level tested (0, 0.1 and 0.3).
 
-## Phase 2: Training ← exit check not met, in review
+## Phase 2: Training ✓ (via the fallback)
 
 - [x] PPO with 12 parallel envs, reward scaling, KL limit (`train/train.py`)
 - [x] Specialist baseline on `odom,lidar,nav`: **90% success** on held-out roads
@@ -43,20 +43,22 @@ Measured with `python -m sim.env` on an Apple Silicon laptop: **2,825 steps/s** 
 
 **Exit:** the generalist reaches at least 80% success with all sensors on, on held-out maps, and stays within 10 points of the specialist on key sensor sets. If it doesn't, ship a small set of specialist models and switch between them in the UI.
 
-**Status:** partly met. 92% on the default set passes the 80% bar, but adding sonar and radar drops it to 36%, and it's 34 points behind the specialist on its set. Tried and not adopted (details in [docs/training.md](docs/training.md#experiments-that-werent-adopted)):
+**Status:** closed on the fallback. The generalist alone gets 92% on the default set but is 34 points behind the specialist on its set. So 8 specialists were trained, and the viewer's Auto driver uses whichever of specialist or generalist scored higher on the sensors currently on ([results](docs/training.md#specialists-per-sensor-set-the-fallback-the-viewer-uses)). Generalist experiments tried and not adopted ([details](docs/training.md#experiments-that-werent-adopted)):
 
 - [x] Train longer (30M steps): worse almost everywhere
 - [x] Crash penalty −20 and the full set in 50% of late episodes: 88% on the specialist's set, but 8% with everything on and 0% with sonar added. A second specialist, not a better generalist
 
-Still to try, roughly cheapest first:
+- [x] Fallback: 8 specialists (`train/specialists.py`), and the viewer picks the best model per sensor set. Camera + radar: 66%; sonar + radar + route: 60%; everything on: 78%
 
-- [ ] Fallback from the exit rule: train specialists for a handful of sensor sets (~5 min each) and switch model when the sensor set changes
+Still worth trying:
+
+- [ ] Retrain the weak specialists with other seeds (two runs scored far below their training performance)
 - [ ] Curriculum over *which* sensors are on: add sensors one at a time instead of jumping to fully random setups
 - [ ] Only randomise settings, not presence, in part of the episodes
 - [ ] Larger network (3 × 512) for the generalist
 - [ ] Warm-start the generalist from the specialist instead of from scratch
 
-## Phase 3: Browser MVP ← mostly done, waiting on a better generalist and deployment
+## Phase 3: Browser MVP ← mostly done, waiting on deployment
 
 The 3D viewer (`web/`) runs the real `sim/` in the page, driven by a trained network by default.
 
@@ -68,7 +70,7 @@ The 3D viewer (`web/`) runs the real `sim/` in the page, driven by a trained net
 - [x] HUD: speed, route progress, crash/off-road status; next road starts automatically
 - [x] Loading screen (Pyodide is about 10 MB on first visit, cached after that)
 - [x] Mobile layout: controls in a bottom drawer
-- [x] Drive with trained policies from Phase 2 (driver switch), loaded in the browser and run with numpy
+- [x] Drive with trained policies from Phase 2: Auto (best model for the sensors that are on), Generalist, Reference, plus one-click sensor presets
 - [ ] GitHub Pages deploy through Actions
 
 **Exit:** the public URL loads in under 10 s on broadband, runs at 30 fps on a mid-range laptop, and switching any sensor visibly changes how the car drives.

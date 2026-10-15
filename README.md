@@ -50,9 +50,11 @@ Pick who drives:
 
 | Driver | What it is |
 |---|---|
-| **Trained** (default) | a neural network trained with random sensor setups. It sees only the sensors you switch on, so turning them off really changes how it drives |
-| **Specialist** | a neural network trained only with odometry, lidar and exact route. Strong on that setup, lost on others |
+| **Auto** (default) | the specialist network trained on exactly the sensors you have switched on. If there isn't one for that combination, the generalist drives instead. One-click presets load each sensor set that has a specialist |
+| **Generalist** | one network trained with random sensor setups. It copes with any combination, some much better than others |
 | **Reference** | a hand-written lane follower that reads the simulator directly. It ignores the sensors; useful to see what "perfect" looks like |
+
+Every network sees only the sensors you switch on, so turning them off really changes how the car drives.
 
 How the networks are trained and how well they score is in [docs/training.md](docs/training.md).
 
@@ -103,20 +105,20 @@ The method, metrics and expected running times are in [research/experiment.md](r
 
 ## Results
 
-Success rate on 50 unseen roads per sensor set (full tables and discussion in [docs/training.md](docs/training.md#results)):
+Success rate on 50 unseen roads, for the model the viewer's Auto driver uses on each sensor set (full tables and discussion in [docs/training.md](docs/training.md#results)):
 
-| Sensors | Specialist (trained on `odom,lidar,nav`) | Generalist (trained on random setups) |
+| Sensors | Success | Model |
 |---|---|---|
-| everything on | 0% | 36% |
-| default set (`odom,lane,nav,lidar`) | 86% | **92%** |
-| `odom,lidar,nav` | **90%** | 56% |
-| `odom,lidar,gps` | 88% | **86%** |
-| `odom,lidar` | 78% | 0% |
-| `lidar` | 42% | 36% |
-| `odom,lane,nav` | 0% (drives off the road) | 0% (stays on the road, hits traffic) |
-| `odom` | 0% | 0% |
+| Odometry + Camera + Route + Lidar (default) | 92% | generalist |
+| Odometry + Route + Lidar | 90% | specialist |
+| Odometry + GPS + Lidar | 86% | generalist |
+| everything on | 78% | specialist |
+| Odometry + Camera + Route + Radar | 66% | specialist |
+| Odometry + Route + Sonar + Radar | 60% | specialist |
+| Lidar only | 50% | specialist |
+| Odometry + Camera + Route | 0% | nothing in this set detects other cars |
 
-So far: lidar is the sensor that matters most on these roads, and a network trained on one sensor set does well on it. The generalist handles the default set well but degrades as sensors are added or removed; [ROADMAP.md](ROADMAP.md) lists what's next. The MetaDrive research track hasn't had its full run yet.
+So far: lidar is the strongest single sensor on these roads, but not essential. With a network trained for them, camera + radar and sonar + radar both drive. What the car can't do without is something that detects other cars. [ROADMAP.md](ROADMAP.md) lists what's next. The MetaDrive research track hasn't had its full run yet.
 
 ## Layout
 

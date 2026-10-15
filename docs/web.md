@@ -37,7 +37,7 @@ Implemented now (`web/worker.js`, with the Python side in `web/bridge.py`):
 |---|---|---|
 | page → worker | `reset` | road number, scenario settings |
 | page → worker | `config` | changed sensor toggles and settings (applied on the next step) |
-| page → worker | `driver` | `generalist`, `specialist` (loads `models/<name>.npz`) or `reference` |
+| page → worker | `driver` | a model name (loads `models/<name>.npz`) or `reference` |
 | page → worker | `speed` | 1, 2 or 4× |
 | page → worker | `pause` | true / false |
 | worker → page | `status` | loading progress text |
@@ -58,6 +58,10 @@ Planned for later phases:
 | worker → page | `benchmark` | progress, then the final table |
 
 Frames are sent as JSON strings. At 10 per second and a few kilobytes each, that's cheap enough; switch to typed arrays if it ever shows up in profiles.
+
+## Choosing a model
+
+The page fetches `models/specialists.json`, written by `train/specialists.py`, which lists every specialist with its sensor set and benchmark score. In Auto mode, every sensor toggle recomputes the set of sensors that are on (in the simulator's fixed order, e.g. `odom-nav-lidar`). The page loads `specialist-<set>.npz` if it's listed, and `generalist.npz` if not. A model is only fetched when the choice changes. Settings sliders never switch models; they change what the current model sees.
 
 ## One policy for every sensor setup
 

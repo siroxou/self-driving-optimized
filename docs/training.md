@@ -6,8 +6,8 @@ How the driving policies for the browser simulator are trained, exported and sco
 
 | Model | Sensors during training | Purpose |
 |---|---|---|
-| `specialist` | fixed: odometry, lidar, exact route | baseline, and a check that the setup can be learned at all |
-| `generalist` | random setup every episode | the playground's default driver: one network that copes with whatever you switch on |
+| `specialist-<sensors>` | one fixed sensor set each (8 sets) | best driver for that set; the viewer's Auto mode switches to it |
+| `generalist` | random setup every episode | one network that copes with whatever you switch on; Auto uses it when no specialist does better |
 
 Both are small networks: 253 inputs (the fixed observation layout in [sensors.md](sensors.md#browser-sim-differences)), two hidden layers of 256 with tanh, and 2 outputs (steering, pedal). An exported model is about 0.5 MB.
 
@@ -57,8 +57,8 @@ Runs the exported `.npz`, exactly what the browser runs, on 50 held-out roads pe
 ```bash
 pip install -r requirements.txt -r requirements-train.txt
 
-python -m train.train --name specialist --sensors odom,lidar,nav --steps 3000000      # ~5 min
-python -m train.train --name generalist --random-sensors --steps 15000000            # ~25 min
+python -m train.train --name generalist --random-sensors --steps 15000000   # ~25 min
+python -m train.specialists     # 8 specialists (~5 min each), then benchmark and write the manifest
 
 python -m train.benchmark web/models/generalist.npz --out results/generalist.md
 python -m train.benchmark expert --out results/expert.md
@@ -72,7 +72,7 @@ Scored with `train/benchmark.py`: 50 held-out roads per sensor set, default traf
 
 **Reference driver** (reads the simulator, ignores sensors): 100% success on every set. It's the ceiling.
 
-### Specialist (3M steps, trained on `odom,lidar,nav`)
+### First specialist (3M steps, trained on `odom,lidar,nav`)
 
 | Sensors | Success | Crash | Off road | Route completion |
 |---|---|---|---|---|
@@ -166,15 +166,38 @@ It made a second specialist, not a better generalist:
 
 v2 is excellent on lidar-based sets and brittle everywhere else. Coping with whatever you switch on is the generalist's whole job, so v1 stays as the shipped model. The code is back to the v1 settings (crash −5, full set falling to 20%), so it reproduces the shipped model.
 
+### Specialists per sensor set (the fallback the viewer uses)
+
+`train/specialists.py` trains one specialist per sensor set (3M steps each, about 5 minutes), then benchmarks each one and the generalist on that set. The manifest it writes (`web/models/specialists.json`) names whichever scored higher. The viewer's Auto driver uses that model whenever its sensor set is switched on, and the generalist otherwise.
+
+| Sensor set | Specialist | Generalist | Auto uses |
+|---|---|---|---|
+| `odom,lane,nav,lidar` (default) | 36% | **92%** | generalist |
+| `odom,lidar,nav` | **90%** | 56% | specialist |
+| `odom,lidar,gps` | 0% | **86%** | generalist |
+| everything on | **78%** | 36% | specialist |
+| `odom,lane,nav,radar` (camera + radar) | **66%** | 4% | specialist |
+| `odom,sonar,radar,nav` (no lidar, no camera) | **60%** | 0% | specialist |
+| `lidar` | **50%** | 36% | specialist |
+| `odom,lane,nav` (camera only) | 0% | 0% | specialist (both fail) |
+
+- **Specialists unlock sets the generalist can't drive.** Camera + radar goes from 4% to 66%; sonar + radar + route goes from 0% to 60%. Lidar isn't required after all; the generalist just never learned to drive without it.
+- **Not every specialist run works.** Two scored far below what they reached during training (the `odom,lidar,gps` run finished about half its training episodes, yet crashes every time when driven deterministically). PPO runs vary a lot from seed to seed. Rather than hide that, the manifest keeps both scores and uses the better model.
+- **Camera only can't work in this sim.** The lane camera reports lane position, not other cars, so nothing detects traffic. Both models crash in every run.
+
 ### Phase 2 exit check
 
-| Criterion | Target | Shipped generalist |
+| Criterion | Target | Result |
 |---|---|---|
-| Success with all sensors on | ≥ 80% | **92%** on the default set ✓, 36% with sonar and radar added ✗ |
-| Gap to the specialist on its set | ≤ 10 points | 34 points ✗ (v2 managed 2 points, but at too high a cost elsewhere) |
+| Success with all sensors on | ≥ 80% | generalist: **92%** on the default set ✓. Everything on: 78% (specialist), just short |
+| Gap to the specialist on its set | ≤ 10 points | generalist alone: 34 points ✗ |
+| Fallback (from the exit rule) | ship specialists and switch per sensor set | **done** ✓ |
+
+The generalist alone doesn't meet the bar, so Phase 2 closes on the fallback the exit rule allows: Auto picks the best available model for whatever sensors are on.
 
 ### Takeaways so far
 
-1. A fixed sensor set is easy to learn here: 3M steps, about 5 minutes.
+1. A fixed sensor set is usually easy to learn here: 3M steps, about 5 minutes. But single runs are unreliable; benchmark every model before trusting it.
 2. One network for every sensor setup handles the default set well but degrades as sensors are added or removed. Both training changes tried so far traded robustness for peak performance on lidar sets.
-3. Sonar is the most disruptive sensor to add to a network that hasn't seen it much, probably because at 5 m range it reads road edges constantly, which a lidar-trained network misreads.
+3. With a dedicated network, the car can drive without lidar (camera + radar: 66%; sonar + radar + route: 60%). It can't drive without something that detects other cars.
+4. Sonar is the most disruptive sensor to add to a network that hasn't seen it much, probably because at 5 m range it reads road edges constantly, which a lidar-trained network misreads.
