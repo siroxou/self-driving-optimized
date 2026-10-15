@@ -105,6 +105,19 @@ python ablate.py                                               # the full study
 
 The method, metrics and expected running times are in [research/experiment.md](research/experiment.md).
 
+## Evaluation levels
+
+![Gauntlet level: the car waits at a zebra crossing while a pedestrian crosses, boxed by radar, with a fallen load and traffic further on](docs/images/level-gauntlet.png)
+
+Two fixed courses add pedestrians, road debris and potholes on top of traffic: **Commute** (light) and **Gauntlet** (three busy lanes, a crossing every 80 m, a pothole every 50 m). Pick one in the viewer under *Road*, and the HUD scores every road as the car drives them in order.
+
+| | Reference driver | Best trained model |
+|---|---|---|
+| Commute | 100% | 6% |
+| Gauntlet | 100% | 0% |
+
+The trained models never saw these hazards, and no sensor can see potholes yet, so this is the bar for the next round of training. Details and a breakdown of what breaks them are in [docs/levels.md](docs/levels.md).
+
 ## Results
 
 Success rate on 50 unseen roads, for the model the viewer's Auto driver uses on each sensor set (full tables and discussion in [docs/training.md](docs/training.md#results)):
@@ -136,6 +149,7 @@ research/            MetaDrive study: sensors, training, evaluation, ablation
 docs/sensors.md      sensor definitions shared by both parts
 docs/web.md          browser playground architecture
 docs/training.md     how the driving networks are trained and scored
+docs/levels.md       evaluation levels: hazards, scoring, results
 ROADMAP.md           phases and exit criteria
 ```
 

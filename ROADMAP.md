@@ -82,6 +82,15 @@ The 3D viewer (`web/`) runs the real `sim/` in the page, driven by a trained net
 
 Measured on the live site in a fresh Chrome profile (empty cache): ready in **2.2 s**, **121 fps** (the display's refresh limit), at both laptop and phone sizes, with no page errors. Switching to the sonar + radar preset loads its specialist, which drives far more cautiously. Caveat: measured on a fast laptop (Apple M5 Pro), with the phone size emulated there too. A check on a mid-range laptop and a real phone is still to do.
 
+## Evaluation levels ✓
+
+- [x] Pedestrians at crosswalks, road debris and potholes (`sim/hazards.py`), as per-km sliders that default to off; runs without them are bit-identical to before
+- [x] Reference driver handles them: 100% on both levels
+- [x] Two fixed levels, Commute and Gauntlet (`sim/levels.py`), scored live in the viewer and with `train.benchmark --level`
+- [x] Results: trained models 0–6% ([docs/levels.md](docs/levels.md)). Potholes cause most failures; pedestrians and debris still cause many even though lidar and radar can see them
+- [ ] Give the camera a road-surface reading (potholes, debris ahead) and retrain every model with hazards switched on
+- [ ] Re-run both levels and publish the before/after
+
 ## Phase 4: Tinkering depth
 
 - [ ] Failure buttons: kill GPS, blind lidar for 3 s, radar ghost targets

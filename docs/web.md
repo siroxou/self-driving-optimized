@@ -35,16 +35,16 @@ Implemented now (`web/worker.js`, with the Python side in `web/bridge.py`):
 
 | Direction | Message | Payload |
 |---|---|---|
-| page → worker | `reset` | road number, scenario settings |
+| page → worker | `reset` | road number, scenario settings, time limit (levels use their own) |
 | page → worker | `config` | changed sensor toggles and settings (applied on the next step) |
 | page → worker | `driver` | a model name (loads `models/<name>.npz`) or `reference` |
 | page → worker | `speed` | 1, 2 or 4× |
 | page → worker | `pause` | true / false |
 | worker → page | `status` | loading progress text |
 | worker → page | `settings` | sensor and scenario defaults and ranges, used to build the controls |
-| worker → page | `road` | road edges, lane lines, finish position, first frame |
+| worker → page | `road` | road edges, lane lines, finish position, crosswalks, debris, potholes, first frame |
 | worker → page | `driver` | which driver is active, and whether its model loaded |
-| worker → page | `frame` | ego pose and speed, traffic poses, lidar and sonar rays, radar track indices, GPS estimate, status, progress |
+| worker → page | `frame` | ego pose and speed, traffic and pedestrian poses, lidar and sonar rays, radar target positions, GPS estimate, status, progress, potholes hit |
 | worker → page | `error` | why loading failed |
 
 Planned for later phases:

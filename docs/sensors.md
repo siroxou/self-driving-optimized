@@ -114,7 +114,20 @@ Values outside these ranges are clamped. These ranges also define what the train
 
 ### Radar occlusion
 
-A vehicle counts as visible to radar if a ray from the ego car to its centre hits it before any other car. Road edges don't block radar.
+A target counts as visible to radar if a ray from the ego car to its centre hits it before any other car, pedestrian or piece of debris. Road edges don't block radar. Radar tracks vehicles and, on the evaluation levels, pedestrians.
+
+### Which sensor sees which hazard
+
+On the [evaluation levels](levels.md) there are three extra hazards:
+
+| Hazard | odom | lane | nav / gps | lidar | sonar | radar |
+|---|---|---|---|---|---|---|
+| Other cars | | | | ✓ | ✓ (close) | ✓ |
+| Pedestrians | | | | ✓ | ✓ (close) | ✓ |
+| Debris (cones, fallen load) | | | | ✓ | ✓ (close) | |
+| Potholes | | | | | | |
+
+Nothing sees potholes. The 2D lidar scans at bumper height, radar tracks moving objects, and the lane camera only reports lane geometry.
 
 ### Scenario
 
@@ -126,5 +139,8 @@ The road and traffic are set per episode, separately from the sensors:
 | `complexity` | 0–1 | 0.5 | more road pieces and tighter bends |
 | `traffic` | 0–0.5 | 0.1 | cars per 20 m of lane |
 | `parked` | 0–1 | 0.2 | share of cars that are parked (broken down) |
+| `pedestrians` | 0–20 | 0 | crosswalks per km, one pedestrian each |
+| `obstacles` | 0–15 | 0 | debris per km (rightmost lane) |
+| `potholes` | 0–40 | 0 | potholes per km |
 
 Parked cars only stand in the rightmost lane and moving cars use the other lanes, because traffic doesn't change lanes and would otherwise queue forever behind a parked car.
