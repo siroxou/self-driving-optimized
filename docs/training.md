@@ -172,18 +172,44 @@ v2 is excellent on lidar-based sets and brittle everywhere else. Coping with wha
 
 | Sensor set | Specialist | Generalist | Auto uses |
 |---|---|---|---|
-| `odom,lane,nav,lidar` (default) | 36% | **92%** | generalist |
-| `odom,lidar,nav` | **90%** | 56% | specialist |
+| `odom,lane,nav,lidar` (default) | 50% | **92%** | generalist |
+| `odom,lidar,nav` | **92%** | 56% | specialist |
 | `odom,lidar,gps` | 0% | **86%** | generalist |
-| everything on | **78%** | 36% | specialist |
-| `odom,lane,nav,radar` (camera + radar) | **66%** | 4% | specialist |
-| `odom,sonar,radar,nav` (no lidar, no camera) | **60%** | 0% | specialist |
-| `lidar` | **50%** | 36% | specialist |
+| everything on | **86%** | 36% | specialist |
+| `odom,lane,nav,radar` (camera + radar) | **80%** | 4% | specialist |
+| `odom,sonar,radar,nav` (no lidar, no camera) | **68%** | 0% | specialist |
+| `lidar` | **70%** | 36% | specialist |
 | `odom,lane,nav` (camera only) | 0% | 0% | specialist (both fail) |
 
-- **Specialists unlock sets the generalist can't drive.** Camera + radar goes from 4% to 66%; sonar + radar + route goes from 0% to 60%. Lidar isn't required after all; the generalist just never learned to drive without it.
+The specialists here have been fine-tuned once for heavier traffic (see below), which also raised their scores at normal traffic.
+
+- **Specialists unlock sets the generalist can't drive.** Camera + radar goes from 4% to 80%; sonar + radar + route goes from 0% to 68%. Lidar isn't required after all; the generalist just never learned to drive without it.
 - **Not every specialist run works.** Two scored far below what they reached during training (the `odom,lidar,gps` run finished about half its training episodes, yet crashes every time when driven deterministically). PPO runs vary a lot from seed to seed. Rather than hide that, the manifest keeps both scores and uses the better model.
 - **Camera only can't work in this sim.** The lane camera reports lane position, not other cars, so nothing detects traffic. Both models crash in every run.
+
+### Heavy traffic
+
+The viewer's traffic slider goes up to 0.5, but the first models were trained with traffic up to 0.3, and they collapse above it. The reference driver shows heavy traffic is drivable: it finishes 98% of routes at 0.5.
+
+| Traffic | 0.1 | 0.2 | 0.3 | 0.4 | 0.5 |
+|---|---|---|---|---|---|
+| reference driver | 100% | 100% | 100% | 96% | 98% |
+
+Training now samples traffic across the full slider range (0–0.5). Every model was fine-tuned from its current weights on that range: 8M more steps for the generalist and 2M for each specialist (`train.specialists --finetune 2000000`). A fine-tuned model replaced the old one only if its average over traffic 0.1, 0.3 and 0.5 was higher and it wasn't worse at normal traffic. Each model was scored on its own sensor set, the generalist on the default set, 50 roads per cell:
+
+| Model | before: 0.1 / 0.3 / 0.5 | after: 0.1 / 0.3 / 0.5 | kept |
+|---|---|---|---|
+| generalist | 92% / 18% / 0% | 90% / 14% / 0% | before |
+| specialist, `odom,lane,nav,lidar` | 36% / 46% / 24% | 50% / 38% / 38% | after |
+| specialist, `odom,lidar,nav` | 90% / 26% / 2% | 92% / 30% / 6% | after |
+| specialist, everything on | 78% / 18% / 0% | 86% / 30% / 16% | after |
+| specialist, camera + radar | 66% / 20% / 0% | 80% / 48% / 10% | after |
+| specialist, sonar + radar + route | 60% / 18% / 0% | 68% / 20% / 0% | after |
+| specialist, `lidar` | 50% / 4% / 0% | 70% / 12% / 0% | after |
+| specialist, `odom,lidar,gps` | 0% / 0% / 0% | 0% / 0% / 0% | after (no change) |
+| specialist, camera only | 0% / 0% / 0% | 0% / 0% / 0% | after (no change) |
+
+**Heavy traffic is still largely unsolved.** Fine-tuning helped at normal and medium traffic, but at 0.5 the best model finishes 38% of routes, against the reference driver's 98%. A harsher crash penalty doesn't fix it on its own: the −20 model from the earlier experiment also drops to 14% at 0.3 and 0% at 0.5. Likely next steps are much longer training focused on heavy traffic, and giving the network a short memory (stacked frames), since overtaking in dense traffic depends on how other cars are moving, which one snapshot shows poorly.
 
 ### Phase 2 exit check
 
@@ -199,5 +225,5 @@ The generalist alone doesn't meet the bar, so Phase 2 closes on the fallback the
 
 1. A fixed sensor set is usually easy to learn here: 3M steps, about 5 minutes. But single runs are unreliable; benchmark every model before trusting it.
 2. One network for every sensor setup handles the default set well but degrades as sensors are added or removed. Both training changes tried so far traded robustness for peak performance on lidar sets.
-3. With a dedicated network, the car can drive without lidar (camera + radar: 66%; sonar + radar + route: 60%). It can't drive without something that detects other cars.
+3. With a dedicated network, the car can drive without lidar (camera + radar: 80%; sonar + radar + route: 68%). It can't drive without something that detects other cars.
 4. Sonar is the most disruptive sensor to add to a network that hasn't seen it much, probably because at 5 m range it reads road edges constantly, which a lidar-trained network misreads.

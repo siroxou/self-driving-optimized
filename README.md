@@ -112,15 +112,17 @@ Success rate on 50 unseen roads, for the model the viewer's Auto driver uses on 
 | Sensors | Success | Model |
 |---|---|---|
 | Odometry + Camera + Route + Lidar (default) | 92% | generalist |
-| Odometry + Route + Lidar | 90% | specialist |
+| Odometry + Route + Lidar | 92% | specialist |
 | Odometry + GPS + Lidar | 86% | generalist |
-| everything on | 78% | specialist |
-| Odometry + Camera + Route + Radar | 66% | specialist |
-| Odometry + Route + Sonar + Radar | 60% | specialist |
-| Lidar only | 50% | specialist |
+| everything on | 86% | specialist |
+| Odometry + Camera + Route + Radar | 80% | specialist |
+| Lidar only | 70% | specialist |
+| Odometry + Route + Sonar + Radar | 68% | specialist |
 | Odometry + Camera + Route | 0% | nothing in this set detects other cars |
 
-So far: lidar is the strongest single sensor on these roads, but not essential. With a network trained for them, camera + radar and sonar + radar both drive. What the car can't do without is something that detects other cars. [ROADMAP.md](ROADMAP.md) lists what's next. The MetaDrive research track hasn't had its full run yet.
+These are at the default traffic level. In heavy traffic (the top of the slider) every model still struggles; see [docs/training.md](docs/training.md#heavy-traffic).
+
+So far: lidar is the strongest single sensor on these roads, but not essential. With a network trained for them, camera + radar (80%) and sonar + radar (68%) both drive. What the car can't do without is something that detects other cars. [ROADMAP.md](ROADMAP.md) lists what's next. The MetaDrive research track hasn't had its full run yet.
 
 ## Layout
 

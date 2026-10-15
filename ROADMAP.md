@@ -50,7 +50,11 @@ Measured with `python -m sim.env` on an Apple Silicon laptop: **2,825 steps/s** 
 
 - [x] Fallback: 8 specialists (`train/specialists.py`), and the viewer picks the best model per sensor set. Camera + radar: 66%; sonar + radar + route: 60%; everything on: 78%
 
+- [x] Train on the full traffic slider range (0–0.5) and fine-tune every model: better at normal and medium traffic, but heavy traffic is still largely unsolved (best 38% at 0.5; reference driver 98%) — [details](docs/training.md#heavy-traffic)
+
 Still worth trying:
+
+- [ ] Heavy traffic: much longer training weighted towards dense traffic, and stacked frames so the network can see how other cars are moving
 
 - [ ] Retrain the weak specialists with other seeds (two runs scored far below their training performance)
 - [ ] Curriculum over *which* sensors are on: add sensors one at a time instead of jumping to fully random setups
@@ -68,6 +72,7 @@ The 3D viewer (`web/`) runs the real `sim/` in the page, driven by a trained net
 - [x] Sensor panel: toggles and sliders that apply mid-drive, built from the simulator's own ranges
 - [x] Road panel: lanes, bendiness, traffic, parked share, road number
 - [x] HUD: speed, route progress, crash/off-road status; next road starts automatically
+- [x] HUD shows which model is driving (generalist, which specialist, or the reference driver)
 - [x] Loading screen (Pyodide is about 10 MB on first visit, cached after that)
 - [x] Mobile layout: controls in a bottom drawer
 - [x] Drive with trained policies from Phase 2: Auto (best model for the sensors that are on), Generalist, Reference, plus one-click sensor presets
