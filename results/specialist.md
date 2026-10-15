@@ -1,6 +1,7 @@
 | Sensors | Success | Crash | Off road | Route completion |
 |---|---|---|---|---|
 | `odom,lane,nav,lidar,sonar,radar` | 0% | 100% | 0% | 35% |
+| `odom,lane,nav,lidar` | 86% | 14% | 0% | 91% |
 | `odom,lidar,nav` | 90% | 10% | 0% | 94% |
 | `odom,lane,nav` | 0% | 0% | 100% | 2% |
 | `odom,lidar,gps` | 88% | 12% | 0% | 93% |

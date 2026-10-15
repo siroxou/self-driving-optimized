@@ -108,6 +108,7 @@ Success rate on 50 unseen roads per sensor set (full tables and discussion in [d
 | Sensors | Specialist (trained on `odom,lidar,nav`) | Generalist (trained on random setups) |
 |---|---|---|
 | everything on | 0% | 36% |
+| default set (`odom,lane,nav,lidar`) | 86% | **92%** |
 | `odom,lidar,nav` | **90%** | 56% |
 | `odom,lidar,gps` | 88% | **86%** |
 | `odom,lidar` | 78% | 0% |
@@ -115,7 +116,7 @@ Success rate on 50 unseen roads per sensor set (full tables and discussion in [d
 | `odom,lane,nav` | 0% (drives off the road) | 0% (stays on the road, hits traffic) |
 | `odom` | 0% | 0% |
 
-So far: lidar is the sensor that matters most on these roads, and a network trained on one sensor set does well on it. One network that handles every setup isn't there yet; [ROADMAP.md](ROADMAP.md) lists what's next. The MetaDrive research track hasn't had its full run yet.
+So far: lidar is the sensor that matters most on these roads, and a network trained on one sensor set does well on it. The generalist handles the default set well but degrades as sensors are added or removed; [ROADMAP.md](ROADMAP.md) lists what's next. The MetaDrive research track hasn't had its full run yet.
 
 ## Layout
 

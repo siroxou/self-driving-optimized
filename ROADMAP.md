@@ -36,18 +36,23 @@ Measured with `python -m sim.env` on an Apple Silicon laptop: **2,825 steps/s** 
 
 - [x] PPO with 12 parallel envs, reward scaling, KL limit (`train/train.py`)
 - [x] Specialist baseline on `odom,lidar,nav`: **90% success** on held-out roads
-- [x] Generalist policy: sensors and their settings randomised every episode, with a curriculum. 36% with all sensors, 56% on the specialist's set
+- [x] Generalist policy: sensors and their settings randomised every episode, with a curriculum. 92% on the default set, 36% with sonar and radar added too, 56% on the specialist's set
 - [x] Export to `.npz` and a numpy forward pass (`sim/policy.py`), with a test that torch and numpy outputs match to 1e-5
 - [x] `train/benchmark.py`: 50 held-out roads per sensor set; tables in `results/`, write-up in [docs/training.md](docs/training.md#results)
 - [x] Trained models drive in the 3D viewer (driver switch: Trained / Specialist / Reference)
 
 **Exit:** the generalist reaches at least 80% success with all sensors on, on held-out maps, and stays within 10 points of the specialist on key sensor sets. If it doesn't, ship a small set of specialist models and switch between them in the UI.
 
-**Status:** not met (36% and 56%). Training longer (30M steps) made it worse. Options, roughly cheapest first:
+**Status:** partly met. 92% on the default set passes the 80% bar, but adding sonar and radar drops it to 36%, and it's 34 points behind the specialist on its set. Tried and not adopted (details in [docs/training.md](docs/training.md#experiments-that-werent-adopted)):
+
+- [x] Train longer (30M steps): worse almost everywhere
+- [x] Crash penalty −20 and the full set in 50% of late episodes: 88% on the specialist's set, but 8% with everything on and 0% with sonar added. A second specialist, not a better generalist
+
+Still to try, roughly cheapest first:
 
 - [ ] Fallback from the exit rule: train specialists for a handful of sensor sets (~5 min each) and switch model when the sensor set changes
-- [ ] Bigger crash penalty (e.g. −20 instead of −5) so speeding into traffic is properly punished
-- [ ] Keep the full sensor set in 50% of late-training episodes instead of 20%, and only randomise settings, not presence, in part of the rest
+- [ ] Curriculum over *which* sensors are on: add sensors one at a time instead of jumping to fully random setups
+- [ ] Only randomise settings, not presence, in part of the episodes
 - [ ] Larger network (3 × 512) for the generalist
 - [ ] Warm-start the generalist from the specialist instead of from scratch
 

@@ -68,7 +68,7 @@ Learning curves are written to `runs/<name>/logs/progress.csv`.
 
 ## Results
 
-Scored with `train/benchmark.py`: 50 held-out roads per sensor set, default traffic, deterministic actions. Raw tables are in `results/`.
+Scored with `train/benchmark.py`: 50 held-out roads per sensor set, default traffic, deterministic actions. Raw tables are in `results/`. "Default set" is `odom,lane,nav,lidar`, what the viewer starts with and what the curriculum calls the full set. "Everything on" also adds sonar and radar.
 
 **Reference driver** (reads the simulator, ignores sensors): 100% success on every set. It's the ceiling.
 
@@ -77,6 +77,7 @@ Scored with `train/benchmark.py`: 50 held-out roads per sensor set, default traf
 | Sensors | Success | Crash | Off road | Route completion |
 |---|---|---|---|---|
 | `odom,lane,nav,lidar,sonar,radar` | 0% | 100% | 0% | 35% |
+| `odom,lane,nav,lidar` | 86% | 14% | 0% | 91% |
 | `odom,lidar,nav` | 90% | 10% | 0% | 94% |
 | `odom,lane,nav` | 0% | 0% | 100% | 2% |
 | `odom,lidar,gps` | 88% | 12% | 0% | 93% |
@@ -87,16 +88,17 @@ Scored with `train/benchmark.py`: 50 held-out roads per sensor set, default traf
 | `odom,nav` | 0% | 0% | 100% | 2% |
 | `odom` | 0% | 0% | 100% | 4% |
 
-- **90% on its own sensor set** (97% on an earlier 30-road check). That's the main proof that the simulator and training setup work.
+- **90% on its own sensor set**, and 86% on the default set (the lane camera is extra, unseen input).
 - **Lidar does almost all the work.** Swap exact route for GPS and it barely notices (88%). Remove route information entirely and it still manages 78%; lidar alone, 42%. These roads have no junctions, so "where does the road go" can be read off the road edges.
 - **Without lidar it can't drive at all**, even with the lane camera and route.
-- **Extra sensors break it** (0% with everything on). It never saw those inputs during training, so they look like noise. That's the problem the generalist is meant to solve.
+- **Unseen sensors break it.** Adding sonar drops it to 0%; adding radar, to 42%.
 
-### Generalist (15M steps, random sensors every episode)
+### Generalist (shipped: 15M steps, random sensors every episode)
 
 | Sensors | Success | Crash | Off road | Route completion |
 |---|---|---|---|---|
 | `odom,lane,nav,lidar,sonar,radar` | 36% | 64% | 0% | 62% |
+| `odom,lane,nav,lidar` | 92% | 8% | 0% | 95% |
 | `odom,lidar,nav` | 56% | 44% | 0% | 79% |
 | `odom,lane,nav` | 0% | 100% | 0% | 34% |
 | `odom,lidar,gps` | 86% | 14% | 0% | 92% |
@@ -107,10 +109,15 @@ Scored with `train/benchmark.py`: 50 held-out roads per sensor set, default traf
 | `odom,nav` | 0% | 0% | 100% | 5% |
 | `odom` | 0% | 0% | 100% | 4% |
 
-- **Phase 2 exit check: not met.** The target was ≥80% with all sensors on and within 10 points of the specialist on its set; it gets 36% and 56%.
-- **It did learn the right failure modes.** Without lidar, it now stays on the road (0% off road with `odom,lane,nav`) and crashes into traffic instead, which is what you'd expect from a car with no obstacle sensing. The specialist just drives off the road.
-- **Results are uneven between similar sets** (86% with GPS, 56% with exact route; 36% with lidar only but 0% with lidar + odometry). That points to an under-trained policy rather than a real effect of those sensors.
-- **More training made it worse.** Continuing to 30M steps lowered most scores (20% with all sensors):
+- **92% on the default set.**
+- **56% on the specialist's set**, 34 points behind the specialist.
+- **36% with everything on.** Each extra sensor costs some success (radar alone: 70%; sonar alone: 74%), but nothing collapses to zero.
+- **It learned the right failure modes.** Without lidar it stays on the road (0% off road with `odom,lane,nav`) and crashes into traffic instead, which is what you'd expect from a car with no obstacle sensing. The specialist just drives off the road.
+- **Results are uneven between similar sets** (86% with GPS vs 56% with exact route; 36% with lidar only vs 0% with lidar + odometry). That points to an under-trained policy rather than a real effect of those sensors.
+
+### Experiments that weren't adopted
+
+**Longer training (30M steps):** lowered most scores (20% with everything on, 44% on the specialist's set).
 
 <details><summary>Generalist after 30M steps</summary>
 
@@ -129,8 +136,45 @@ Scored with `train/benchmark.py`: 50 held-out roads per sensor set, default traf
 
 </details>
 
+**Crash penalty −20 and the full set in 50% of late episodes (v2, 15M steps):** the idea was to punish speeding into traffic harder and keep more full-sensor practice.
+
+| Sensors | Success | Crash | Off road | Route completion |
+|---|---|---|---|---|
+| `odom,lane,nav,lidar,sonar,radar` | 8% | 92% | 0% | 42% |
+| `odom,lane,nav,lidar` | 90% | 10% | 0% | 95% |
+| `odom,lidar,nav` | 88% | 12% | 0% | 93% |
+| `odom,lane,nav` | 0% | 0% | 100% | 2% |
+| `odom,lidar,gps` | 80% | 20% | 0% | 88% |
+| `odom,lane` | 0% | 2% | 98% | 5% |
+| `odom,lidar` | 4% | 96% | 0% | 42% |
+| `lidar` | 4% | 96% | 0% | 42% |
+| `odom,sonar,radar,nav` | 0% | 4% | 96% | 9% |
+| `odom,nav` | 0% | 0% | 100% | 2% |
+| `odom` | 0% | 0% | 100% | 3% |
+
+It made a second specialist, not a better generalist:
+
+| Sensors | v1 (shipped) | v2 |
+|---|---|---|
+| default set | **92%** | 90% |
+| `odom,lidar,nav` | 56% | **88%** |
+| default + radar | **70%** | 44% |
+| default + sonar | **74%** | 0% |
+| everything on | **36%** | 8% |
+| `lidar` only | **36%** | 4% |
+| no lidar | stays on road, hits traffic | drives off road |
+
+v2 is excellent on lidar-based sets and brittle everywhere else. Coping with whatever you switch on is the generalist's whole job, so v1 stays as the shipped model. The code is back to the v1 settings (crash −5, full set falling to 20%), so it reproduces the shipped model.
+
+### Phase 2 exit check
+
+| Criterion | Target | Shipped generalist |
+|---|---|---|
+| Success with all sensors on | ≥ 80% | **92%** on the default set ✓, 36% with sonar and radar added ✗ |
+| Gap to the specialist on its set | ≤ 10 points | 34 points ✗ (v2 managed 2 points, but at too high a cost elsewhere) |
+
 ### Takeaways so far
 
-1. A fixed sensor set is easy to learn here; 3M steps (about 5 minutes) is enough.
-2. One network for every sensor setup is much harder, and the current recipe plateaus. Likely causes: 80% of late-training episodes have setups that can't drive well at all, which drowns out the learning signal; and the −5 crash penalty is small next to the progress reward, so speeding into traffic isn't punished much. See the roadmap for what to try next.
-
+1. A fixed sensor set is easy to learn here: 3M steps, about 5 minutes.
+2. One network for every sensor setup handles the default set well but degrades as sensors are added or removed. Both training changes tried so far traded robustness for peak performance on lidar sets.
+3. Sonar is the most disruptive sensor to add to a network that hasn't seen it much, probably because at 5 m range it reads road edges constantly, which a lidar-trained network misreads.

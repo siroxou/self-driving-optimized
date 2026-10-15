@@ -19,6 +19,7 @@ from sim.sensors import from_names
 TEST_SEEDS = 10_000_000  # first held-out road; training only uses roads below this
 SETS = [
     "odom,lane,nav,lidar,sonar,radar",
+    "odom,lane,nav,lidar",  # the default set the viewer starts with
     "odom,lidar,nav",
     "odom,lane,nav",
     "odom,lidar,gps",
