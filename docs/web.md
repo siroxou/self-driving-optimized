@@ -1,6 +1,6 @@
 # Browser playground: architecture
 
-Status: the simulator (`sim/`) is built (Phase 1). The browser side starts in Phase 3 of the [roadmap](../ROADMAP.md).
+Status: the simulator (`sim/`) is built, and a first 3D viewer (`web/`) runs it in the browser with the reference lane follower driving. Trained policies, deployment and the tinkering features follow the [roadmap](../ROADMAP.md).
 
 ## Goals
 
@@ -24,35 +24,38 @@ sim/ (Python + numpy)
                main thread: three.js renders the scene, ui.js handles controls
 ```
 
-- **One simulator, two places.** `sim/` is plain Python with only numpy as a dependency. Pyodide (CPython compiled to WebAssembly) runs it unchanged in the browser. No logic is rewritten in JavaScript, so training and the demo can't drift apart.
+- **One simulator, two places.** `sim/` is plain Python with only numpy as a dependency. Gymnasium is optional: training uses it, but Pyodide can't import it (it needs `multiprocessing`), so without it `DriveEnv` is a plain class with the same methods and the same seeding. Pyodide (CPython compiled to WebAssembly) runs it unchanged in the browser. No logic is rewritten in JavaScript, so training and the demo can't drift apart.
 - **Physics is 2D, rendering is 3D.** Cars on a road only need position, heading and speed on a plane. three.js adds the third dimension for looks: road mesh, car models, chase camera.
 - **The policy runs in numpy.** Training uses PyTorch through Stable-Baselines3. `train/export.py` writes the network weights to `.npz`, and `sim/policy.py` runs the same small network with numpy matrix multiplies. A test checks both give the same outputs.
 - **A worker keeps the page smooth.** The simulator and policy run in a Web Worker so the page never freezes. The worker sends a small snapshot each step and the main thread draws it.
 
 ## Worker messages
 
-Main thread → worker:
+Implemented now (`web/worker.js`, with the Python side in `web/bridge.py`):
 
-| Message | Payload |
-|---|---|
-| `init` | model URL, initial config |
-| `reset` | map seed, scenario settings |
-| `config` | changed sensor toggles and parameters (applied on the next step) |
-| `fail` | sensor name and duration |
-| `mode` | `ai`, `manual`, `race` |
-| `input` | steering and throttle (manual mode) |
-| `benchmark` | config, seeds, episode count |
+| Direction | Message | Payload |
+|---|---|---|
+| page → worker | `reset` | road number, scenario settings |
+| page → worker | `config` | changed sensor toggles and settings (applied on the next step) |
+| page → worker | `speed` | 1, 2 or 4× |
+| page → worker | `pause` | true / false |
+| worker → page | `status` | loading progress text |
+| worker → page | `settings` | sensor and scenario defaults and ranges, used to build the controls |
+| worker → page | `road` | road edges, lane lines, finish position, first frame |
+| worker → page | `frame` | ego pose and speed, traffic poses, lidar and sonar rays, radar track indices, GPS estimate, status, progress |
+| worker → page | `error` | why loading failed |
 
-Worker → main thread:
+Planned for later phases:
 
-| Message | Payload |
-|---|---|
-| `ready` | load time |
-| `frame` | car poses, ray endpoints, radar tracks, GPS ghost pose, observation vector, metrics |
-| `done` | end reason and episode metrics |
-| `benchmark` | progress, then the final table |
+| Direction | Message | Payload |
+|---|---|---|
+| page → worker | `fail` | sensor name and duration |
+| page → worker | `mode` | `ai`, `manual`, `race` |
+| page → worker | `input` | steering and throttle (manual mode) |
+| page → worker | `benchmark` | config, seeds, episode count |
+| worker → page | `benchmark` | progress, then the final table |
 
-Snapshots are plain arrays (Float32Array where it matters) so passing them is cheap.
+Frames are sent as JSON strings. At 10 per second and a few kilobytes each, that's cheap enough; switch to typed arrays if it ever shows up in profiles.
 
 ## One policy for every sensor setup
 
@@ -73,17 +76,17 @@ Details are in [sensors.md](sensors.md#browser-sim-differences). If one policy c
 
 ## Running locally
 
-Once `web/` exists (Phase 3):
+Serve the repo root (not `web/`), because the worker fetches the simulator from `../sim/`:
 
 ```bash
-python -m http.server -d web 8000
+python -m http.server 8000
 ```
 
-Then open http://localhost:8000. The page fetches `sim/` as a zip, which the deploy workflow builds. Locally, `python tools/pack_sim.py` does the same.
+Then open http://localhost:8000/web/. No build step and no Python packages are needed on your machine; the page downloads Pyodide and numpy itself. The worker fetches the `sim/` files with `cache: "no-cache"`, so edits show up on a normal reload.
 
-## Deploying
+## Deploying (planned)
 
-A GitHub Actions workflow packs `sim/` into `web/sim.zip`, copies the exported models into `web/models/`, and publishes `web/` to GitHub Pages on every push to `main`.
+A GitHub Actions workflow will publish the repo's `web/` and `sim/` folders (plus exported models) to GitHub Pages on every push to `main`.
 
 ## Performance targets
 

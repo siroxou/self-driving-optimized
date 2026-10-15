@@ -6,7 +6,7 @@ This project trains a car to drive in simulation and then takes its senses away 
 
 It has two parts:
 
-- **Browser playground** (in development): open a link, switch sensors off, drag sliders for beam count, range and noise, and watch the car cope or crash in 3D. It runs entirely in your browser. The plan is in [ROADMAP.md](ROADMAP.md) and the design is in [docs/web.md](docs/web.md).
+- **Browser playground** (in development): open a link, switch sensors off, drag sliders for beam count, range and noise, and watch the car cope or crash in 3D. It runs entirely in your browser. A first 3D viewer already works locally (see below); the plan is in [ROADMAP.md](ROADMAP.md) and the design is in [docs/web.md](docs/web.md).
 - **Research track** (`research/`): a sensor ablation study on the [MetaDrive](https://github.com/metadriverse/metadrive) simulator using PPO. It's higher fidelity and slower, and it's used to check the playground's findings.
 
 ## Sensors
@@ -24,6 +24,23 @@ Both parts use the same sensors:
 | `radar` | Automotive radar | position and velocity of the 4 nearest vehicles, 80 m |
 
 How each one is modelled, and what it gets wrong compared with real hardware, is in [docs/sensors.md](docs/sensors.md).
+
+## 3D viewer
+
+The simulator runs in the browser through Pyodide and is drawn in 3D with three.js. From the repo root:
+
+```bash
+python -m http.server 8000
+```
+
+Open http://localhost:8000/web/. The first load downloads about 10 MB of Python (cached afterwards). You can:
+
+- turn each sensor on or off and change its settings while the car drives
+- see what each sensor reports: lidar rays (blue), sonar rays (orange), radar tracks (yellow boxes), and a green "ghost" car where GPS thinks you are
+- change lanes, bendiness, traffic and parked cars, or jump to any road number
+- switch between chase, top-down and free cameras, and run at 1×, 2× or 4×
+
+For now the car is driven by a reference lane follower that reads the simulator directly, so switching sensors changes what you see but not how it drives. Trained policies that depend on the sensors come in Phase 2 of the [roadmap](ROADMAP.md).
 
 ## Browser simulator quickstart
 
@@ -78,6 +95,7 @@ Pending the first full run.
 
 ```
 sim/                 browser simulator: roads, car, traffic, sensors, gym env (Python + numpy)
+web/                 3D viewer: three.js scene, controls, Pyodide worker
 tests/               simulator tests
 research/            MetaDrive study: sensors, training, evaluation, ablation
 docs/sensors.md      sensor definitions shared by both parts

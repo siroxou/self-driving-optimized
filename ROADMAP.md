@@ -42,13 +42,19 @@ Measured with `python -m sim.env` on an Apple Silicon laptop: **2,825 steps/s** 
 
 **Exit:** the generalist reaches at least 80% success with all sensors on, on held-out maps, and stays within 10 points of the specialist on key sensor sets. If it doesn't, ship a small set of specialist models and switch between them in the UI.
 
-## Phase 3: Browser MVP
+## Phase 3: Browser MVP ← 3D viewer built early, waiting on Phase 2
 
-- [ ] Web Worker that loads Pyodide, numpy and `sim/`, then steps env + policy at 10 Hz (the sim's step is 0.1 s; rendering interpolates between steps)
-- [ ] three.js scene: road mesh, cars, chase camera, lidar rays drawn live
-- [ ] Sensor panel: toggles and sliders that apply mid-drive
-- [ ] HUD: speed, route progress, crash/off-road status
-- [ ] Loading screen (Pyodide is about 10 MB on first visit, cached after that)
+A first 3D viewer (`web/`) was built ahead of Phase 2 so the simulator could be reviewed visually. It runs the real `sim/` in the page. Until there's a trained model, the reference lane follower drives, so the sensor switches change what's drawn but not how the car drives.
+
+- [x] Web Worker that loads Pyodide, numpy and `sim/`, then steps the env at 10 Hz (the sim's step is 0.1 s; rendering interpolates between steps)
+- [x] three.js scene: road mesh, cars, finish gate, chase / top-down / free cameras
+- [x] Live sensor overlays: lidar rays, sonar rays, radar track boxes, GPS ghost car
+- [x] Sensor panel: toggles and sliders that apply mid-drive, built from the simulator's own ranges
+- [x] Road panel: lanes, bendiness, traffic, parked share, road number
+- [x] HUD: speed, route progress, crash/off-road status; next road starts automatically
+- [x] Loading screen (Pyodide is about 10 MB on first visit, cached after that)
+- [x] Mobile layout: controls in a bottom drawer
+- [ ] Drive with the trained policy from Phase 2 instead of the lane follower
 - [ ] GitHub Pages deploy through Actions
 
 **Exit:** the public URL loads in under 10 s on broadband, runs at 30 fps on a mid-range laptop, and switching any sensor visibly changes how the car drives.
