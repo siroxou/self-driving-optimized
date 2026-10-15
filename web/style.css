@@ -34,6 +34,7 @@ button[aria-pressed="true"] { background: var(--accent); border-color: var(--acc
 .hud-big { font-size: 32px; font-weight: 650; line-height: 1; }
 .hud-unit, .hud-small, .note { color: var(--muted); }
 .hud-small { font-size: 12px; margin-top: 6px; }
+.hud-driver { font-size: 12px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); max-width: 220px; }
 .progress { height: 6px; margin-top: 10px; background: rgba(255, 255, 255, 0.1); border-radius: 3px; overflow: hidden; }
 #hud-progress { height: 100%; width: 0; background: var(--ok); transition: width 0.1s linear; }
 

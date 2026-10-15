@@ -340,7 +340,10 @@ worker.onmessage = ({ data: msg }) => {
     });
     reset();
   } else if (msg.type === "driver") {
-    if (!msg.ok) $("driver-note").textContent = DRIVER_NOTES.missing;
+    if (!msg.ok) {
+      $("driver-note").textContent = DRIVER_NOTES.missing;
+      $("hud-driver").textContent = driverLabel("reference");
+    }
   } else if (msg.type === "road") {
     const road = JSON.parse(msg.data);
     buildRoad(road);
@@ -375,6 +378,13 @@ function setSensor(name, on) {
   updateDriver();
 }
 
+function driverLabel(model) {
+  if (model === "reference") return "Driver: reference lane follower";
+  if (model === "generalist") return "Driver: generalist network";
+  const sensors = model.replace("specialist-", "").split("-").map((n) => SHORT[n]).join(" + ");
+  return `Driver: specialist (${sensors})`;
+}
+
 function updateDriver() {
   const key = sensorKey();
   const match = specialists.find((s) => s.sensors.join("-") === key);
@@ -389,6 +399,7 @@ function updateDriver() {
   }
   $("driver-note").textContent = note;
   document.querySelectorAll("#presets button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.key === key && !!match)));
+  $("hud-driver").textContent = driverLabel(model);
   if (model !== loadedModel) {
     loadedModel = model;
     worker.postMessage({ type: "driver", name: model });
