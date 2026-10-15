@@ -159,7 +159,7 @@ def _sonar(env, c):
 def _radar(env, c):
     tracks = np.zeros((RADAR_SLOTS, 5))
     settings = [_norm("radar", k, c[k]) for k in ("tracks", "range")]
-    x, y, _, vx, vy = env.traffic_pose
+    x, y, vx, vy = env.radar_targets  # traffic, then pedestrians
     rel = np.stack([x, y], -1) - env.car.pos
     dist = np.linalg.norm(rel, axis=-1)
     cand = np.flatnonzero(dist < c["range"])
@@ -174,7 +174,7 @@ def _radar(env, c):
     vel = _to_car_frame(np.stack([vx, vy], -1)[cand] - ego_v, env.car.yaw) / (2 * MAX_SPEED)
     tracks[:len(cand), :4] = (np.hstack([pos, vel]) + 1) / 2
     tracks[:len(cand), 4] = 1.0
-    return [tracks.ravel(), settings], {"radar": cand}
+    return [tracks.ravel(), settings], {"radar": np.stack([x, y], -1)[cand]}
 
 
 # slot name -> (readings + settings size, reader). The present flag adds one more value.

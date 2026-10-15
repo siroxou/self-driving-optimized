@@ -33,11 +33,12 @@ class Car:
         self.y += self.v * np.sin(self.yaw) * DT
 
 
-def box_segments(x, y, yaw):
-    """Four outline segments per car, for raycasting. Segment j belongs to car j // 4."""
+def box_segments(x, y, yaw, length=LENGTH, width=WIDTH):
+    """Four outline segments per box (a car by default), for raycasting. Segment j belongs to box j // 4.
+    `length` and `width` may be scalars or one value per box."""
     c, s = np.cos(yaw)[:, None], np.sin(yaw)[:, None]
-    dx = np.array([1, 1, -1, -1]) * LENGTH / 2
-    dy = np.array([1, -1, -1, 1]) * WIDTH / 2
+    dx = np.array([1, 1, -1, -1]) * np.asarray(length)[..., None] / 2
+    dy = np.array([1, -1, -1, 1]) * np.asarray(width)[..., None] / 2
     corners = np.stack([x[:, None] + dx * c - dy * s, y[:, None] + dx * s + dy * c], -1)
     return corners.reshape(-1, 2), np.roll(corners, -1, axis=1).reshape(-1, 2)
 

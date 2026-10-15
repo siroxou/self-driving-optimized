@@ -20,17 +20,21 @@ except ImportError:
 
 from .sensors import DEFAULTS, OBS_SIZE, merge, observe
 from .car import WIDTH, Car, MAX_SPEED, box_segments, collides
+from .hazards import POTHOLE_DAMAGE_SPEED, POTHOLE_SLOWDOWN, Hazards
 from .traffic import Traffic
 from .world import Road
 
-SCENARIO = {"lanes": 2, "complexity": 0.5, "traffic": 0.1, "parked": 0.2}
-SCENARIO_RANGES = {"lanes": (1, 3), "complexity": (0.0, 1.0), "traffic": (0.0, 0.5), "parked": (0.0, 1.0)}
+SCENARIO = {"lanes": 2, "complexity": 0.5, "traffic": 0.1, "parked": 0.2, "pedestrians": 0.0, "obstacles": 0.0, "potholes": 0.0}
+SCENARIO_RANGES = {"lanes": (1, 3), "complexity": (0.0, 1.0), "traffic": (0.0, 0.5), "parked": (0.0, 1.0),
+                   "pedestrians": (0.0, 20.0), "obstacles": (0.0, 15.0), "potholes": (0.0, 40.0)}  # hazards: per km
+HAZARDS = ("pedestrians", "obstacles", "potholes")
 HORIZON = 1500  # steps (150 s)
 START_S, END_MARGIN = 5.0, 10.0
 
 # Same structure as MetaDrive's default reward, so the two tracks stay comparable.
 PROGRESS_REWARD, SPEED_REWARD = 1.0, 0.1
 CRASH_PENALTY, OFF_ROAD_PENALTY, SUCCESS_REWARD = 5.0, 5.0, 10.0
+POTHOLE_PENALTY = 1.0
 OFF_ROAD_TOLERANCE = 0.3  # metres a wheel may stray past the road edge
 
 
@@ -38,7 +42,8 @@ class DriveEnv(gym.Env if gym else object):
     metadata = {"render_modes": []}
     rng = None
 
-    def __init__(self, sensors=None, scenario=None):
+    def __init__(self, sensors=None, scenario=None, horizon=HORIZON):
+        self.horizon = horizon  # steps before a run is cut off as a timeout
         self.sensor_cfg = merge(DEFAULTS, sensors)
         self.scenario = dict(SCENARIO)
         self.configure(scenario=scenario)
@@ -66,6 +71,12 @@ class DriveEnv(gym.Env if gym else object):
         self.car = Car(x, y, yaw)
         self.traffic = Traffic(self.road, self.rng, sc["traffic"], sc["parked"], START_S)
         self.dest = self.road.length - END_MARGIN
+        self.hazards = None
+        if any(sc[k] > 0 for k in HAZARDS):  # own generator, so hazards never disturb anything else
+            parked = self.traffic.s[self.traffic.v0 == 0]
+            self.hazards = Hazards(self.road, np.random.default_rng(self.rng.integers(2**63)),
+                                   sc["pedestrians"], sc["obstacles"], sc["potholes"], START_S, parked)
+        self.potholes_hit = 0
         self.gps_bias = np.zeros(2)
         self.steps = 0
         self.idx, self.s, self.lat = self.road.project(self.car.pos)
@@ -74,28 +85,46 @@ class DriveEnv(gym.Env if gym else object):
 
     def step(self, action):
         self.car.step(action)
-        self.traffic.step(self.s, self.lat, self.car.v)
+        hz = self.hazards
+        if hz:
+            hz.step(np.append(self.traffic.s[self.traffic.v0 > 0], self.s))  # parked cars don't make pedestrians wait
+        self.traffic.step(self.s, self.lat, self.car.v, hz.blockers() if hz else None)
         last_s = self.s
         self.idx, self.s, self.lat = self.road.project(self.car.pos, self.idx)
         self.steps += 1
 
         x, y, yaw, _, _ = self.traffic.poses()
         reward = PROGRESS_REWARD * (self.s - last_s) + SPEED_REWARD * self.car.v / MAX_SPEED
-        if collides(self.car, x, y, yaw):
+        hit, holes = hz.contact(self.car) if hz else (None, 0)
+        if holes:
+            fast = self.car.v > POTHOLE_DAMAGE_SPEED
+            self.car.v *= POTHOLE_SLOWDOWN ** holes
+            self.potholes_hit += holes
+            reward -= POTHOLE_PENALTY * holes
+        if collides(self.car, x, y, yaw) or hit == "obstacle":
             self.status, reward = "crash", reward - CRASH_PENALTY
+        elif hit == "pedestrian":
+            self.status, reward = "hit_pedestrian", reward - CRASH_PENALTY
+        elif holes and fast:
+            self.status, reward = "damaged", reward - CRASH_PENALTY
         elif abs(self.lat) + WIDTH / 2 > self.road.width / 2 + OFF_ROAD_TOLERANCE:
             self.status, reward = "out_of_road", reward - OFF_ROAD_PENALTY
         elif self.s >= self.dest:
             self.status, reward = "success", reward + SUCCESS_REWARD
         terminated = self.status != "driving"
-        truncated = not terminated and self.steps >= HORIZON
+        truncated = not terminated and self.steps >= self.horizon
         return self._observe(), float(reward), terminated, truncated, self._info()
 
     def _observe(self):
         self.traffic_pose = self.traffic.poses()
-        x, y, yaw = self.traffic_pose[:3]
+        x, y, yaw, vx, vy = self.traffic_pose
         car_p, car_q = box_segments(x, y, yaw)
         self.n_edges = len(self.road.edge_p)
+        self.radar_targets = (x, y, vx, vy)
+        if self.hazards:  # pedestrian and obstacle outlines come after the cars, so segment j // 4 still names the target
+            hz_p, hz_q = self.hazards.segments()
+            car_p, car_q = np.vstack([car_p, hz_p]), np.vstack([car_q, hz_q])
+            self.radar_targets = tuple(np.append(a, b) for a, b in zip(self.radar_targets, self.hazards.radar_targets()))
         self.seg_p = np.vstack([self.road.edge_p, car_p])
         self.seg_q = np.vstack([self.road.edge_q, car_q])
         self.seg_dist = np.linalg.norm((self.seg_p + self.seg_q) / 2 - self.car.pos, axis=1)
@@ -107,6 +136,9 @@ class DriveEnv(gym.Env if gym else object):
             "success": self.status == "success",
             "crash": self.status == "crash",
             "out_of_road": self.status == "out_of_road",
+            "hit_pedestrian": self.status == "hit_pedestrian",
+            "damaged": self.status == "damaged",
+            "potholes_hit": self.potholes_hit,
             "route_completion": float(np.clip(self.s / self.dest, 0, 1)),
             "speed": self.car.v,
             "steps": self.steps,

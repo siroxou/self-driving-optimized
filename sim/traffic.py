@@ -36,13 +36,19 @@ class Traffic:
     def __len__(self):
         return len(self.s)
 
-    def step(self, ego_s, ego_lat, ego_v):
+    def step(self, ego_s, ego_lat, ego_v, blockers=None):
+        """`blockers`: optional (s, lat, reach) arrays of other things to stop for, e.g. pedestrians on the road."""
         if len(self) == 0:
             return
         # A car's leader is the closest car ahead in its lane, ego included when it overlaps that lane.
         all_s, all_v = np.append(self.s, ego_s), np.append(self.v, ego_v)
-        ego_in_lane = np.abs(self.road.lane_center(self.lane) - ego_lat) < (LANE_WIDTH + WIDTH) / 2
+        centre = self.road.lane_center(self.lane)
+        ego_in_lane = np.abs(centre - ego_lat) < (LANE_WIDTH + WIDTH) / 2
         same_lane = np.hstack([self.lane[:, None] == self.lane[None, :], ego_in_lane[:, None]])
+        if blockers is not None and len(blockers[0]):
+            b_s, b_lat, b_reach = blockers
+            all_s, all_v = np.append(all_s, b_s), np.append(all_v, np.zeros(len(b_s)))
+            same_lane = np.hstack([same_lane, np.abs(centre[:, None] - b_lat[None, :]) < b_reach[None, :]])
         ahead = np.where(same_lane & (all_s[None, :] > self.s[:, None]), all_s[None, :], np.inf)
         lead = ahead.argmin(1)
         gap = ahead.min(1) - self.s - LENGTH
