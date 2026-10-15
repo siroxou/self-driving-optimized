@@ -65,6 +65,6 @@ python ablate.py --steps 50000 --episodes 10 --seeds 1
 
 ## Known limitations
 
-- Sensor models are idealised (see [sensors.md](sensors.md)).
+- Sensor models are idealised (see [docs/sensors.md](../docs/sensors.md)).
 - PPO from scratch is a weak learner. A set that "fails" might succeed with more steps or imitation learning, so treat results as "under this training budget".
 - MetaDrive allows one simulator per process, so runs are sequential. Parallelising means running separate processes.

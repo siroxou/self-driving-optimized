@@ -4,7 +4,7 @@ Each sensor is a small function that reads the ego vehicle and returns a list of
 floats in [0, 1]. An observation is the concatenation of the selected sensors in
 a fixed order, so the same policy code works for any combination.
 
-See docs/sensors.md for how each simulated sensor relates to the real hardware.
+See docs/sensors.md (repo root) for how each simulated sensor relates to the real hardware.
 """
 import logging
 

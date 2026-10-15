@@ -1,0 +1,5 @@
+metadrive-simulator==0.4.3
+stable-baselines3>=2.3
+pandas>=2.0
+tabulate>=0.9
+pytest>=8.0
