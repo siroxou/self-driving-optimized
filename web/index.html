@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Self-Driving Sensor Lab</title>
+  <meta name="description" content="Switch off a self-driving car's sensors and see what it still perceives.">
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <canvas id="scene" aria-label="3D view of the car driving"></canvas>
+
+  <div id="hud" aria-live="polite">
+    <div class="hud-row"><span class="hud-big" id="hud-speed">0</span><span class="hud-unit">km/h</span></div>
+    <div class="progress" role="progressbar" aria-label="Route progress" aria-valuemin="0" aria-valuemax="100">
+      <div id="hud-progress"></div>
+    </div>
+    <div class="hud-small"><span id="hud-status">Driving</span> · road <span id="hud-seed">0</span></div>
+  </div>
+
+  <div id="banner" hidden></div>
+
+  <button id="panel-toggle" type="button" aria-controls="panel" aria-expanded="false">Controls</button>
+
+  <aside id="panel" aria-label="Controls">
+    <section>
+      <h2>Driver</h2>
+      <p class="note">The car is driven by a reference lane follower that reads the simulator directly. Sensor switches change what's shown, not how it drives. Trained models that actually depend on the sensors arrive in Phase 2.</p>
+    </section>
+
+    <section>
+      <h2>Sensors</h2>
+      <div id="sensors"></div>
+    </section>
+
+    <section>
+      <h2>Road</h2>
+      <div id="scenario"></div>
+      <div class="row">
+        <label for="seed">Road #</label>
+        <input id="seed" type="number" min="0" step="1" value="0">
+        <button id="new-road" type="button">New road</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>View</h2>
+      <div class="segmented" role="group" aria-label="Camera">
+        <button type="button" data-cam="chase" aria-pressed="true">Chase</button>
+        <button type="button" data-cam="top" aria-pressed="false">Top-down</button>
+        <button type="button" data-cam="free" aria-pressed="false">Free</button>
+      </div>
+      <div class="segmented" role="group" aria-label="Simulation speed">
+        <button type="button" data-speed="1" aria-pressed="true">1×</button>
+        <button type="button" data-speed="2" aria-pressed="false">2×</button>
+        <button type="button" data-speed="4" aria-pressed="false">4×</button>
+        <button type="button" id="pause" aria-pressed="false">Pause</button>
+      </div>
+    </section>
+  </aside>
+
+  <div id="loading" role="status">
+    <div class="spinner" aria-hidden="true"></div>
+    <p id="loading-text">Starting…</p>
+    <p class="note">First visit downloads about 10 MB of Python. It's cached after that.</p>
+  </div>
+
+  <script type="module" src="main.js"></script>
+</body>
+</html>
