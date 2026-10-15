@@ -1,6 +1,9 @@
 # Sensor models
 
-Every sensor lives in `sdo/sensors.py` as a function that reads the ego vehicle and returns floats in `[0, 1]`. The observation is the concatenation of the selected sensors in a fixed order (the order of the `SENSORS` dict), so `lidar,nav` and `nav,lidar` produce identical inputs.
+This page defines the sensors for both parts of the project. The browser sim and the MetaDrive research track use the same names, meanings and default values, so results from one can be compared with the other.
+
+- **Research track:** `research/sdo/sensors.py`. Every sensor is a function that reads the ego vehicle and returns floats in `[0, 1]`. The observation is the concatenation of the selected sensors in a fixed order (the order of the `SENSORS` dict), so `lidar,nav` and `nav,lidar` produce identical inputs.
+- **Browser sim:** `sim/sensors.py` (in progress). It uses the same sensors, plus live-tunable parameters and a fixed observation layout. See [Browser sim differences](#browser-sim-differences) below.
 
 These are simulator stand-ins, not physically accurate models. The point is to give each sensor roughly the information content and failure modes of the real thing, so the ablation says something useful.
 
@@ -51,8 +54,27 @@ Real radar measures range and Doppler velocity directly but has poor angular res
 
 ## Camera (planned)
 
-RGB and depth cameras are in Phase 2 of the roadmap. They need a CNN policy and offscreen rendering, and learning from them takes far more samples, so they're kept separate from the vector sensors.
+A camera is in Phase 5 of the roadmap. It will be a low-resolution semantic camera rendered by raycasting in numpy, so training and the browser see identical images. Learning from pixels takes far more samples than learning from vector sensors, so it comes after the vector-sensor demo works.
 
 ## Changing a sensor
 
-All parameters are constants at the top of `sdo/sensors.py`. Change one, re-run `ablate.py`, and the observation sizes update automatically. Existing trained models won't load against a different size, so retrain after changing beam or track counts.
+In the research track, all parameters are constants at the top of `research/sdo/sensors.py`. Change one, re-run `research/ablate.py`, and the observation sizes update automatically. Existing trained models won't load against a different size, so retrain after changing beam or track counts.
+
+## Browser sim differences
+
+In the browser, people change sensors while the car is driving, so one trained policy has to cope with any setup. Three things differ from the research track:
+
+- **Fixed observation layout.** Every sensor always has its slot in the observation. A switched-off sensor fills its slot with a neutral value and sets a "present" flag to 0. Each slot also carries the sensor's current settings (range, noise), normalised to `[0, 1]`, so the policy knows how much to trust it.
+- **Sector binning for lidar and sonar.** Instead of one value per beam, the readings are binned into 72 fixed angular sectors (5° each), keeping the shortest distance in each sector. A sector no beam passes through is marked "no data". This means the input shape stays the same whether you pick 4 beams or 240.
+- **Live-tunable parameters.**
+
+| Sensor | Adjustable in the browser |
+|---|---|
+| `odom` | noise |
+| `lane` | detection noise |
+| `nav` / `gps` | GPS jitter, drift |
+| `lidar` | beams 4–240, range 5–100 m, noise, dropout |
+| `sonar` | beams, range |
+| `radar` | track count, range |
+
+The policy is trained with all of these randomised every episode. See [ROADMAP.md](../ROADMAP.md), Phase 2.

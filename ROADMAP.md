@@ -1,50 +1,102 @@
 # Roadmap
 
-The goal is a defensible answer to one question: what is the cheapest sensor set that still drives safely, and how much does each sensor buy you?
+The end goal is a public web page where anyone can switch off a self-driving car's senses, tune what's left, and watch what happens. That page is the answer to the project's question: how little does a self-driving car need to sense?
 
-## Phase 0: Baseline ← current
+There are two tracks:
 
-- [x] Switchable sensor suite on MetaDrive (odometry, lane, nav, GPS, lidar, sonar, radar)
-- [x] PPO training, held-out evaluation, ablation runner
-- [x] Smoke tests
-- [ ] Tune PPO until `odom,lidar,nav` reliably finishes routes on unseen maps (target: >80% success)
-- [ ] Pick the training budget (steps) where the baseline stops improving
+- **Browser playground** (main): our own lightweight driving sim written in Python + numpy. It trains offline and runs in the browser through Pyodide, with 3D rendering in three.js. It's a static site, so there's no server and anyone can open it.
+- **Research track** (`research/`): the same sensor study on MetaDrive, a higher-fidelity simulator. It's used to check that the browser findings hold up.
 
-## Phase 1: Ablation study
+Each phase ends with an exit check that has to pass before the next one starts.
 
-- [ ] Run the default grid in `ablate.py` with 3 seeds each
-- [ ] Learning-curve plot per sensor set (steps to reach 50% success)
-- [ ] Publish the results table in the README
-- [ ] Short write-up: which sensors matter, which are redundant, and which only help in traffic
+## Phase 0: Restructure ← current
 
-## Phase 2: Vision
+- [x] Move the MetaDrive study into `research/`
+- [x] Add the `sim/` package skeleton
+- [x] Write the browser architecture doc ([docs/web.md](docs/web.md))
 
-- [ ] RGB and depth camera observations (MetaDrive offscreen rendering)
-- [ ] CNN policy (`MultiInputPolicy`), with the image combined with the vector sensors
-- [ ] Compare camera-only, camera+odom and camera+gps against the lidar results
-- [ ] Note the extra compute and sample cost of learning from pixels
+**Exit:** research tests pass from `research/`, and the research scripts still run.
 
-## Phase 3: Robustness
+## Phase 1: Sim core
 
-- [ ] Sweep noise levels and beam dropout for every sensor
-- [ ] Sensor failure mid-episode (e.g. GPS dropout in a "tunnel")
-- [ ] Heavier traffic and harder maps
-- [ ] Check whether redundant sensors start to matter once failures are possible
+- [ ] Procedural roads: straights and arcs chained into a route, with lane markings and road-edge segments
+- [ ] Car: kinematic bicycle model, collision box
+- [ ] Traffic: lane-following cars with an IDM speed model
+- [ ] Sensors (`odom`, `lane`, `nav`, `gps`, `lidar`, `sonar`, `radar`), each with live-tunable parameters and debug geometry for drawing
+- [ ] Fixed observation layout: sensor slot, present flag, normalised settings; lidar and sonar binned into 72 sectors
+- [ ] Gymnasium env with the same metrics as the research track: `success`, `crash`, `out_of_road`, `route_completion`
+- [ ] Tests: same seed gives the same run, raycasts hit hand-built geometry where expected, every sensor stays in `[0, 1]`, observation shape never changes
 
-## Phase 4: Minimal-set search
+**Exit:** at least 2,000 steps/s in one process on a laptop, and a hand-written lane follower completes routes.
 
-- [ ] Greedy backward elimination: drop the sensor whose removal hurts least, and repeat
-- [ ] Shrink resolution too: how few lidar beams and how short a range still work
-- [ ] Rough hardware cost per sensor, then plot a cost vs. safety frontier
+## Phase 2: Training
 
-## Phase 5: Realism
+- [ ] PPO with vectorised envs
+- [ ] Specialist baseline on `odom,lidar,nav`
+- [ ] Generalist policy: sensors and their settings randomised every episode, with a curriculum that starts with everything on and drops sensors more often over time
+- [ ] Export to `.npz` and a numpy forward pass (`sim/policy.py`), with a test that torch and numpy outputs match to 1e-5
+- [ ] `train/benchmark.py`: fixed held-out seeds, numbers go in the README
 
-- [ ] Port the best two or three sensor sets to CARLA on a cloud GPU (native radar, GNSS and IMU models, real camera rendering)
-- [ ] Check whether the ranking from MetaDrive holds up
-- [ ] Optional: imitation learning from CARLA's autopilot as a stronger baseline than PPO from scratch
+**Exit:** the generalist reaches at least 80% success with all sensors on, on held-out maps, and stays within 10 points of the specialist on key sensor sets. If it doesn't, ship a small set of specialist models and switch between them in the UI.
 
-## Out of scope for now
+## Phase 3: Browser MVP
+
+- [ ] Web Worker that loads Pyodide, numpy and `sim/`, then steps env + policy at 20 Hz
+- [ ] three.js scene: road mesh, cars, chase camera, lidar rays drawn live
+- [ ] Sensor panel: toggles and sliders that apply mid-drive
+- [ ] HUD: speed, route progress, crash/off-road status
+- [ ] Loading screen (Pyodide is about 10 MB on first visit, cached after that)
+- [ ] GitHub Pages deploy through Actions
+
+**Exit:** the public URL loads in under 10 s on broadband, runs at 30 fps on a mid-range laptop, and switching any sensor visibly changes how the car drives.
+
+## Phase 4: Tinkering depth
+
+- [ ] Failure buttons: kill GPS, blind lidar for 3 s, radar ghost targets
+- [ ] Scenario panel: map seed, road complexity, traffic density, speed limit, weather presets (weather = sensor noise)
+- [ ] Top-down camera; sensor overlay with sonar cones, radar track boxes, and a "ghost" car where GPS thinks you are
+- [ ] "AI's eyes" panel: live observation bars and a polar lidar plot
+- [ ] Drive yourself (keyboard and touch), with the same sensor overlay
+- [ ] Race mode: 2–4 cars on one map with different sensor setups
+- [ ] Benchmark button: N fixed-seed episodes at full speed → success, crash, off-road, route completion, and a sensor-cost score
+- [ ] Share links: the full setup is encoded in the URL
+- [ ] Personal leaderboard in local storage
+- [ ] Mobile layout
+
+**Exit:** every feature above works on desktop and phone, and a shared link reproduces the exact run.
+
+## Phase 5: Camera and explainability
+
+- [ ] Low-res semantic camera rendered by raycasting in numpy, shown as a small viewport
+- [ ] Camera-only and camera+odom policies
+- [ ] Saliency overlay: which inputs moved the steering this step (finite differences)
+
+**Exit:** camera policies are selectable in the playground, and saliency updates live.
+
+## Phase 6: Bring your own policy
+
+- [ ] Colab notebook to train a custom policy on any sensor setup
+- [ ] Drag a `.npz` onto the page to drive with it
+- [ ] Challenge page: fixed seeds and sensor-cost targets
+- [ ] Write-up of the findings
+
+## Phase 7: Research cross-check
+
+- [ ] Run the best browser sensor sets through the MetaDrive study in `research/`
+- [ ] Report whether the ranking holds in the higher-fidelity sim
+
+## Research track backlog
+
+These carry over from the original plan and run alongside the phases above:
+
+- [ ] Tune PPO until `odom,lidar,nav` finishes more than 80% of routes on unseen MetaDrive maps
+- [ ] Full ablation grid, 3 seeds each, with learning curves
+- [ ] Noise, dropout and mid-episode failure sweeps
+- [ ] Greedy backward elimination of sensors and beam counts, plotted against hardware cost
+- [ ] Port the best sets to CARLA on a cloud GPU
+
+## Out of scope
 
 - Real hardware
-- Multi-agent scenarios
-- Language or vision-language models in the control loop: too slow for 10–20 Hz control, and they work on already-perceived objects, which hides the sensor question this project is trying to answer
+- A server-side simulator: it would cost money, limit concurrent users, and add lag
+- Language or vision-language models in the control loop: too slow for 20 Hz control, and they work on objects that have already been detected, which hides the sensor question
