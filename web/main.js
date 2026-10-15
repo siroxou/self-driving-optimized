@@ -14,12 +14,17 @@ const SETTING_LABELS = {
   range: "range (m)", jitter: "jitter (m)", drift: "drift (m/step)",
 };
 const SCENARIO_LABELS = { lanes: "lanes", complexity: "bendiness", traffic: "traffic", parked: "parked share" };
+const SHORT = { odom: "Odometry", lane: "Camera", nav: "Route", gps: "GPS", lidar: "Lidar", sonar: "Sonar", radar: "Radar" };
 const DRIVER_NOTES = {
-  generalist: "A neural network trained with random sensor setups. It only sees the sensors switched on below, so turn them off and watch it cope, or not.",
-  specialist: "A neural network trained only with odometry, lidar and exact route. Other sensors are noise to it; switch off everything else for a fair test.",
+  generalist: "One neural network trained with random sensor setups. It sees only the sensors switched on below, and copes with some setups better than others.",
   reference: "A hand-written lane follower that reads the simulator directly. It ignores the sensors, so switches change only what's drawn.",
-  missing: "That model hasn't been trained yet, so the reference lane follower is driving.",
+  noSpecialist: "No specialist was trained on this exact sensor set, so the generalist is driving. Pick a set below to try one that has.",
+  missing: "That model couldn't be loaded, so the reference lane follower is driving.",
 };
+// Specialists available for the Auto driver, listed by train/specialists.py.
+const specialistsReady = fetch("models/specialists.json", { cache: "no-cache" })
+  .then((r) => (r.ok ? r.json() : []))
+  .catch(() => []);
 const END_TEXT = { crash: "Crashed", out_of_road: "Left the road", success: "Arrived", timeout: "Out of time" };
 
 const v3 = (x, y, h = 0) => new THREE.Vector3(x, h, -y);
@@ -273,11 +278,7 @@ function buildControls({ defaults, ranges, scenario: sc, scenarioRanges }) {
     const id = `t-${name}`;
     const colour = swatch[name] ? `<span class="swatch" style="background:#${swatch[name].toString(16).padStart(6, "0")}"></span>` : "";
     el.innerHTML = `<label class="toggle" for="${id}"><input id="${id}" type="checkbox" ${values.on ? "checked" : ""}>${LABELS[name]}${colour}</label><div class="sliders"></div>`;
-    el.querySelector("input").addEventListener("change", (e) => {
-      cfg[name].on = e.target.checked;
-      el.classList.toggle("off", !e.target.checked);
-      worker.postMessage({ type: "config", sensors: { [name]: { on: cfg[name].on } } });
-    });
+    el.querySelector("input").addEventListener("change", (e) => setSensor(name, e.target.checked));
     const sliders = el.querySelector(".sliders");
     for (const [key, [lo, hi]] of Object.entries(ranges[name])) {
       slider(sliders, SETTING_LABELS[key] || key, values[key], lo, hi, key === "beams" || key === "tracks", (v) => {
@@ -332,10 +333,14 @@ worker.onmessage = ({ data: msg }) => {
     $("loading-text").textContent = `Couldn't start the simulator: ${msg.text}`;
   } else if (msg.type === "settings") {
     buildControls(JSON.parse(msg.data));
-    setDriver("generalist");
+    specialistsReady.then((list) => {
+      specialists = list;
+      buildPresets();
+      updateDriver();
+    });
     reset();
   } else if (msg.type === "driver") {
-    $("driver-note").textContent = DRIVER_NOTES[msg.ok ? msg.name : "missing"];
+    if (!msg.ok) $("driver-note").textContent = DRIVER_NOTES.missing;
   } else if (msg.type === "road") {
     const road = JSON.parse(msg.data);
     buildRoad(road);
@@ -356,11 +361,64 @@ $("seed").addEventListener("change", (e) => {
   reset();
 });
 
-function setDriver(name) {
-  pressGroup("data-driver", document.querySelector(`[data-driver="${name}"]`));
-  worker.postMessage({ type: "driver", name });
+// ---------- driver: Auto picks the specialist trained on exactly the sensors that are on ----------
+let driverMode = "auto", specialists = [], loadedModel = null;
+
+const sensorKey = () => Object.keys(cfg).filter((n) => cfg[n].on).join("-");
+
+function setSensor(name, on) {
+  cfg[name].on = on;
+  const box = $(`t-${name}`);
+  box.checked = on;
+  box.closest(".sensor").classList.toggle("off", !on);
+  worker.postMessage({ type: "config", sensors: { [name]: { on } } });
+  updateDriver();
 }
-document.querySelectorAll("[data-driver]").forEach((b) => b.addEventListener("click", () => setDriver(b.dataset.driver)));
+
+function updateDriver() {
+  const key = sensorKey();
+  const match = specialists.find((s) => s.sensors.join("-") === key);
+  const pct = (x) => `${Math.round(x * 100)}%`;
+  let model = driverMode, note = DRIVER_NOTES[driverMode];
+  if (driverMode === "auto") {
+    model = match ? match.model : "generalist";
+    if (!match) note = DRIVER_NOTES.noSpecialist;
+    else if (match.model === "generalist")
+      note = `The specialist trained on these sensors finished ${pct(match.specialist)} of test roads, fewer than the generalist's ${pct(match.generalist)}, so the generalist is driving.`;
+    else note = `Specialist trained on exactly these sensors. It finished ${pct(match.specialist)} of test roads (generalist: ${pct(match.generalist)}).`;
+  }
+  $("driver-note").textContent = note;
+  document.querySelectorAll("#presets button").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.key === key && !!match)));
+  if (model !== loadedModel) {
+    loadedModel = model;
+    worker.postMessage({ type: "driver", name: model });
+  }
+}
+
+function buildPresets() {
+  const box = $("presets");
+  for (const s of [...specialists].sort((a, b) => b.success - a.success)) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.key = s.sensors.join("-");
+    b.innerHTML = `${s.sensors.map((n) => SHORT[n]).join(" + ")}<span>${Math.round(s.success * 100)}%</span>`;
+    b.addEventListener("click", () => {
+      for (const n of Object.keys(cfg)) if (cfg[n].on !== s.sensors.includes(n)) setSensor(n, s.sensors.includes(n));
+      if (driverMode !== "auto") {
+        driverMode = "auto";
+        pressGroup("data-driver", document.querySelector('[data-driver="auto"]'));
+        updateDriver();
+      }
+    });
+    box.appendChild(b);
+  }
+}
+
+document.querySelectorAll("[data-driver]").forEach((b) => b.addEventListener("click", () => {
+  pressGroup("data-driver", b);
+  driverMode = b.dataset.driver;
+  updateDriver();
+}));
 
 function pressGroup(attr, button) {
   document.querySelectorAll(`[${attr}]`).forEach((b) => b.setAttribute("aria-pressed", String(b === button)));

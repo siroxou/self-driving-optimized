@@ -34,11 +34,13 @@
     <section>
       <h2>Driver</h2>
       <div class="segmented" role="group" aria-label="Driver">
-        <button type="button" data-driver="generalist" aria-pressed="true">Trained</button>
-        <button type="button" data-driver="specialist" aria-pressed="false">Specialist</button>
+        <button type="button" data-driver="auto" aria-pressed="true">Auto</button>
+        <button type="button" data-driver="generalist" aria-pressed="false">Generalist</button>
         <button type="button" data-driver="reference" aria-pressed="false">Reference</button>
       </div>
       <p class="note" id="driver-note"></p>
+      <p class="note">Sensor sets with their own specialist (best test score):</p>
+      <div class="presets" id="presets" role="group" aria-label="Sensor presets"></div>
     </section>
 
     <section>

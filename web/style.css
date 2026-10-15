@@ -69,6 +69,10 @@ button[aria-pressed="true"] { background: var(--accent); border-color: var(--acc
 .row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
 .row input[type="number"] { width: 80px; padding: 5px 6px; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line); border-radius: 8px; }
 .segmented { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+.presets { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.presets button { display: flex; justify-content: space-between; gap: 8px; text-align: left; font-size: 12px; }
+.presets button span { color: var(--muted); font-variant-numeric: tabular-nums; }
+.presets button[aria-pressed="true"] span { color: #fff; }
 
 #panel-toggle { display: none; }
 
