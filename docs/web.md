@@ -90,9 +90,11 @@ python -m http.server 8000
 
 Then open http://localhost:8000/web/. No build step and no Python packages are needed on your machine; the page downloads Pyodide and numpy itself. The worker fetches the `sim/` files with `cache: "no-cache"`, so edits show up on a normal reload.
 
-## Deploying (planned)
+## Deploying
 
-A GitHub Actions workflow will publish the repo's `web/` and `sim/` folders (plus exported models) to GitHub Pages on every push to `main`.
+`.github/workflows/pages.yml` publishes to GitHub Pages on every push to `main` (or by hand from the Actions tab). It copies `web/` (page, worker and models) and `sim/` into one site, keeping them side by side so the worker's `../sim/` paths still work. It also adds a root page that redirects to `web/`.
+
+Live: https://siroxou.github.io/self-driving-optimized/web/
 
 ## Performance targets
 

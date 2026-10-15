@@ -58,7 +58,7 @@ Still worth trying:
 - [ ] Larger network (3 × 512) for the generalist
 - [ ] Warm-start the generalist from the specialist instead of from scratch
 
-## Phase 3: Browser MVP ← mostly done, waiting on deployment
+## Phase 3: Browser MVP ← deployed, exit check pending
 
 The 3D viewer (`web/`) runs the real `sim/` in the page, driven by a trained network by default.
 
@@ -71,7 +71,7 @@ The 3D viewer (`web/`) runs the real `sim/` in the page, driven by a trained net
 - [x] Loading screen (Pyodide is about 10 MB on first visit, cached after that)
 - [x] Mobile layout: controls in a bottom drawer
 - [x] Drive with trained policies from Phase 2: Auto (best model for the sensors that are on), Generalist, Reference, plus one-click sensor presets
-- [ ] GitHub Pages deploy through Actions
+- [x] GitHub Pages deploy through Actions: live at https://siroxou.github.io/self-driving-optimized/web/
 
 **Exit:** the public URL loads in under 10 s on broadband, runs at 30 fps on a mid-range laptop, and switching any sensor visibly changes how the car drives.
 

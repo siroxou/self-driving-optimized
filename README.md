@@ -2,11 +2,13 @@
 
 How little does a self-driving car actually need to sense?
 
+**[Try it in your browser →](https://siroxou.github.io/self-driving-optimized/web/)** Switch sensors off, change their settings, and watch the car cope. Nothing to install.
+
 This project trains a car to drive in simulation and then takes its senses away (lidar, ultrasonic, radar, GPS, lane camera, odometry) to see where it starts to fail.
 
 It has two parts:
 
-- **Browser playground** (in development): open a link, switch sensors off, drag sliders for beam count, range and noise, and watch the car cope or crash in 3D. It runs entirely in your browser. A first 3D viewer already works locally (see below); the plan is in [ROADMAP.md](ROADMAP.md) and the design is in [docs/web.md](docs/web.md).
+- **Browser playground** ([live](https://siroxou.github.io/self-driving-optimized/web/)): switch sensors off, drag sliders for beam count, range and noise, and watch the car cope or crash in 3D. It runs entirely in your browser. The plan is in [ROADMAP.md](ROADMAP.md) and the design is in [docs/web.md](docs/web.md).
 - **Research track** (`research/`): a sensor ablation study on the [MetaDrive](https://github.com/metadriverse/metadrive) simulator using PPO. It's higher fidelity and slower, and it's used to check the playground's findings.
 
 ## Sensors
@@ -33,7 +35,7 @@ How each one is modelled, and what it gets wrong compared with real hardware, is
 |---|---|
 | ![Top-down view: the green ghost car shows where GPS thinks the car is, several metres off the road](docs/images/viewer-topdown-gps.png) | ![Phone layout with the control drawer open](docs/images/viewer-phone-controls.png) |
 
-The simulator runs in the browser through Pyodide and is drawn in 3D with three.js. From the repo root:
+The simulator runs in the browser through Pyodide and is drawn in 3D with three.js. It's live at **https://siroxou.github.io/self-driving-optimized/web/**. To run it locally instead, from the repo root:
 
 ```bash
 python -m http.server 8000
