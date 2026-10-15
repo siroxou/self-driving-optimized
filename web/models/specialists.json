@@ -1,0 +1,94 @@
+[
+  {
+    "sensors": [
+      "odom",
+      "lane",
+      "nav",
+      "lidar"
+    ],
+    "model": "generalist",
+    "success": 0.92,
+    "specialist": 0.36,
+    "generalist": 0.92
+  },
+  {
+    "sensors": [
+      "odom",
+      "nav",
+      "lidar"
+    ],
+    "model": "specialist-odom-nav-lidar",
+    "success": 0.9,
+    "specialist": 0.9,
+    "generalist": 0.56
+  },
+  {
+    "sensors": [
+      "odom",
+      "gps",
+      "lidar"
+    ],
+    "model": "generalist",
+    "success": 0.86,
+    "specialist": 0.0,
+    "generalist": 0.86
+  },
+  {
+    "sensors": [
+      "odom",
+      "lane",
+      "nav",
+      "lidar",
+      "sonar",
+      "radar"
+    ],
+    "model": "specialist-odom-lane-nav-lidar-sonar-radar",
+    "success": 0.78,
+    "specialist": 0.78,
+    "generalist": 0.36
+  },
+  {
+    "sensors": [
+      "odom",
+      "lane",
+      "nav",
+      "radar"
+    ],
+    "model": "specialist-odom-lane-nav-radar",
+    "success": 0.66,
+    "specialist": 0.66,
+    "generalist": 0.04
+  },
+  {
+    "sensors": [
+      "odom",
+      "lane",
+      "nav"
+    ],
+    "model": "specialist-odom-lane-nav",
+    "success": 0.0,
+    "specialist": 0.0,
+    "generalist": 0.0
+  },
+  {
+    "sensors": [
+      "odom",
+      "nav",
+      "sonar",
+      "radar"
+    ],
+    "model": "specialist-odom-nav-sonar-radar",
+    "success": 0.6,
+    "specialist": 0.6,
+    "generalist": 0.0
+  },
+  {
+    "sensors": [
+      "lidar"
+    ],
+    "model": "specialist-lidar",
+    "success": 0.5,
+    "specialist": 0.5,
+    "generalist": 0.36
+  }
+]

@@ -2,7 +2,7 @@
 
     python -m train.benchmark web/models/generalist.npz
     python -m train.benchmark expert --episodes 20
-    python -m train.benchmark web/models/specialist.npz --sets "odom,lidar,nav" --out results.md
+    python -m train.benchmark web/models/specialist-odom-nav-lidar.npz --sets "odom,lidar,nav" --out results.md
 
 Uses sim/policy.py (numpy), i.e. exactly what the browser runs.
 """
