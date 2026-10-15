@@ -25,6 +25,29 @@ Both parts use the same sensors:
 
 How each one is modelled, and what it gets wrong compared with real hardware, is in [docs/sensors.md](docs/sensors.md).
 
+## Browser simulator quickstart
+
+The simulator in `sim/` is pure Python + numpy. The browser front end comes in Phase 3, but the sim already runs locally:
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+pytest tests                 # simulator tests
+python -m sim.env            # speed check + reference lane-follower run
+```
+
+```python
+from sim.env import DriveEnv
+
+env = DriveEnv(sensors={"lidar": {"beams": 16}, "gps": {"on": True}, "nav": {"on": False}},
+               scenario={"traffic": 0.2})
+obs, info = env.reset(seed=0)
+obs, reward, terminated, truncated, info = env.step([0.0, 0.5])  # [steering, pedal]
+env.configure(sensors={"lidar": {"on": False}})                    # takes effect next step
+```
+
+Every sensor setting and its allowed range is listed in [docs/sensors.md](docs/sensors.md#browser-sim-differences).
+
 ## Research track quickstart
 
 Tested on Python 3.11.
@@ -54,7 +77,8 @@ Pending the first full run.
 ## Layout
 
 ```
-sim/                 browser simulator (Python + numpy, runs in Pyodide). In progress
+sim/                 browser simulator: roads, car, traffic, sensors, gym env (Python + numpy)
+tests/               simulator tests
 research/            MetaDrive study: sensors, training, evaluation, ablation
 docs/sensors.md      sensor definitions shared by both parts
 docs/web.md          browser playground architecture

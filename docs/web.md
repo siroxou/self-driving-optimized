@@ -1,6 +1,6 @@
 # Browser playground: architecture
 
-Status: design. Implementation starts in Phase 1 of the [roadmap](../ROADMAP.md).
+Status: the simulator (`sim/`) is built (Phase 1). The browser side starts in Phase 3 of the [roadmap](../ROADMAP.md).
 
 ## Goals
 
@@ -59,7 +59,7 @@ Snapshots are plain arrays (Float32Array where it matters) so passing them is ch
 The sliders change the size of sensor readings (4 lidar beams vs. 240), and the toggles remove sensors entirely. A normal network needs a fixed input, so:
 
 - every sensor always has a slot in the observation, plus a "present" flag and its current settings
-- lidar and sonar are binned into 72 fixed sectors, with "no data" where no beam passes
+- lidar is binned into 72 fixed sectors and sonar into 16, with "no data" where no beam passes
 - training randomises sensors and settings every episode
 
 Details are in [sensors.md](sensors.md#browser-sim-differences). If one policy can't cover every setup well enough, the fallback is a few specialist models that the page switches between.
@@ -90,6 +90,6 @@ A GitHub Actions workflow packs `sim/` into `web/sim.zip`, copies the exported m
 | | Target |
 |---|---|
 | First load | under 10 s on broadband (Pyodide + numpy ≈ 10 MB, cached afterwards) |
-| Simulation | 20 Hz in real time; benchmark mode runs as fast as the worker allows |
+| Simulation | 10 Hz in real time (0.1 s steps), rendering interpolates between them; benchmark mode runs as fast as the worker allows. Native Python runs about 2,800 steps/s with every sensor on, so the browser has plenty of headroom even if Pyodide is several times slower |
 | Rendering | 30 fps on a mid-range laptop |
 | Phone | usable at 375 px wide |

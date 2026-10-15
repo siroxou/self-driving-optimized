@@ -3,7 +3,7 @@
 This page defines the sensors for both parts of the project. The browser sim and the MetaDrive research track use the same names, meanings and default values, so results from one can be compared with the other.
 
 - **Research track:** `research/sdo/sensors.py`. Every sensor is a function that reads the ego vehicle and returns floats in `[0, 1]`. The observation is the concatenation of the selected sensors in a fixed order (the order of the `SENSORS` dict), so `lidar,nav` and `nav,lidar` produce identical inputs.
-- **Browser sim:** `sim/sensors.py` (in progress). It uses the same sensors, plus live-tunable parameters and a fixed observation layout. See [Browser sim differences](#browser-sim-differences) below.
+- **Browser sim:** `sim/sensors.py`. It uses the same sensors, plus live-tunable parameters and a fixed observation layout. See [Browser sim differences](#browser-sim-differences) below.
 
 These are simulator stand-ins, not physically accurate models. The point is to give each sensor roughly the information content and failure modes of the real thing, so the ablation says something useful.
 
@@ -62,19 +62,69 @@ In the research track, all parameters are constants at the top of `research/sdo/
 
 ## Browser sim differences
 
-In the browser, people change sensors while the car is driving, so one trained policy has to cope with any setup. Three things differ from the research track:
+In the browser, people change sensors while the car is driving, so one trained policy has to cope with any setup. That changes three things compared with the research track.
 
-- **Fixed observation layout.** Every sensor always has its slot in the observation. A switched-off sensor fills its slot with a neutral value and sets a "present" flag to 0. Each slot also carries the sensor's current settings (range, noise), normalised to `[0, 1]`, so the policy knows how much to trust it.
-- **Sector binning for lidar and sonar.** Instead of one value per beam, the readings are binned into 72 fixed angular sectors (5° each), keeping the shortest distance in each sector. A sector no beam passes through is marked "no data". This means the input shape stays the same whether you pick 4 beams or 240.
-- **Live-tunable parameters.**
+### Fixed observation layout
 
-| Sensor | Adjustable in the browser |
-|---|---|
-| `odom` | noise |
-| `lane` | detection noise |
-| `nav` / `gps` | GPS jitter, drift |
-| `lidar` | beams 4–240, range 5–100 m, noise, dropout |
-| `sonar` | beams, range |
-| `radar` | track count, range |
+Every sensor always has its own slot in the observation, in this order:
 
-The policy is trained with all of these randomised every episode. See [ROADMAP.md](../ROADMAP.md), Phase 2.
+```
+[ readings ... | settings ... | present ]
+```
+
+A switched-off sensor's whole slot is zeros, including the `present` flag. Settings are normalised to `[0, 1]` using the ranges below, so the policy can tell a 4-beam lidar from a 240-beam one, or clean GPS from noisy GPS.
+
+| Slot | Readings | Settings | Total |
+|---|---|---|---|
+| `odom` | 5 (as above) | noise | 7 |
+| `lane` | 3 (as above) | noise | 5 |
+| `route` | 4 route points 5/15/30/50 m ahead in the car's frame (8), route progress, lane count | exact?, GPS jitter, GPS drift | 14 |
+| `lidar` | 72 sector distances + 72 "has data" flags | beams, range, noise, dropout | 149 |
+| `sonar` | 16 sector distances + 16 "has data" flags | beams, range | 35 |
+| `radar` | 8 tracks × (position x/y, velocity x/y, valid) | tracks, range | 43 |
+
+Total: 253 values.
+
+`nav` and `gps` share the `route` slot. If `nav` is on, the route is computed from the true position. If only `gps` is on, it's computed from a noisy estimate, so the car "thinks" it's somewhere slightly different and the route points shift with it.
+
+### Sector binning
+
+Lidar beams are binned into 72 sectors of 5°, keeping the shortest distance per sector. A sector no beam passes through has its "has data" flag at 0. Sonar works the same way with 16 sectors of 22.5°. The input shape therefore stays the same whether you pick 4 lidar beams or 240.
+
+Each sonar beam is three rays spread over ±10°, keeping the shortest, which is closer to how a real ultrasonic cone behaves than a single thin ray.
+
+### Live-tunable settings
+
+| Sensor | Setting | Range | Default | Unit |
+|---|---|---|---|---|
+| `odom` | noise | 0–0.3 | 0 | std dev, normalised units |
+| `lane` | noise | 0–2 | 0 | std dev, metres |
+| `gps` | jitter | 0–10 | 1.5 | std dev per step, metres |
+| `gps` | drift | 0–1 | 0.1 | bias random-walk step, metres (bias capped at 10 m) |
+| `lidar` | beams | 4–240 | 240 | |
+| `lidar` | range | 5–100 | 50 | metres |
+| `lidar` | noise | 0–0.2 | 0 | std dev, fraction of range |
+| `lidar` | dropout | 0–0.9 | 0 | chance each beam returns nothing |
+| `sonar` | beams | 2–16 | 8 | |
+| `sonar` | range | 1–10 | 5 | metres |
+| `radar` | tracks | 1–8 | 4 | |
+| `radar` | range | 20–200 | 80 | metres |
+
+Values outside these ranges are clamped. These ranges also define what the training randomises over (Phase 2), so a policy is only expected to work inside them.
+
+### Radar occlusion
+
+A vehicle counts as visible to radar if a ray from the ego car to its centre hits it before any other car. Road edges don't block radar.
+
+### Scenario
+
+The road and traffic are set per episode, separately from the sensors:
+
+| Setting | Range | Default | Meaning |
+|---|---|---|---|
+| `lanes` | 1–3 | 2 | lanes, all one direction |
+| `complexity` | 0–1 | 0.5 | more road pieces and tighter bends |
+| `traffic` | 0–0.5 | 0.1 | cars per 20 m of lane |
+| `parked` | 0–1 | 0.2 | share of cars that are parked (broken down) |
+
+Parked cars only stand in the rightmost lane and moving cars use the other lanes, because traffic doesn't change lanes and would otherwise queue forever behind a parked car.

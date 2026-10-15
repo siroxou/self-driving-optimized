@@ -9,7 +9,7 @@ There are two tracks:
 
 Each phase ends with an exit check that has to pass before the next one starts.
 
-## Phase 0: Restructure ← current
+## Phase 0: Restructure ✓
 
 - [x] Move the MetaDrive study into `research/`
 - [x] Add the `sim/` package skeleton
@@ -17,17 +17,20 @@ Each phase ends with an exit check that has to pass before the next one starts.
 
 **Exit:** research tests pass from `research/`, and the research scripts still run.
 
-## Phase 1: Sim core
+## Phase 1: Sim core ← exit check passed, in review
 
-- [ ] Procedural roads: straights and arcs chained into a route, with lane markings and road-edge segments
-- [ ] Car: kinematic bicycle model, collision box
-- [ ] Traffic: lane-following cars with an IDM speed model
-- [ ] Sensors (`odom`, `lane`, `nav`, `gps`, `lidar`, `sonar`, `radar`), each with live-tunable parameters and debug geometry for drawing
-- [ ] Fixed observation layout: sensor slot, present flag, normalised settings; lidar and sonar binned into 72 sectors
-- [ ] Gymnasium env with the same metrics as the research track: `success`, `crash`, `out_of_road`, `route_completion`
-- [ ] Tests: same seed gives the same run, raycasts hit hand-built geometry where expected, every sensor stays in `[0, 1]`, observation shape never changes
+- [x] Procedural roads: straights and arcs chained into a route, 1–3 lanes, road-edge segments (`sim/world.py`)
+- [x] Car: kinematic bicycle model, two-disc collision shape (`sim/car.py`)
+- [x] Traffic: lane-following cars with an IDM speed model, plus parked cars (`sim/traffic.py`)
+- [x] Sensors (`odom`, `lane`, `nav`, `gps`, `lidar`, `sonar`, `radar`), each with live-tunable parameters and debug geometry for drawing (`sim/sensors.py`)
+- [x] Fixed observation layout: sensor slot, present flag, normalised settings; lidar binned into 72 sectors, sonar into 16
+- [x] Gymnasium env with the same metrics as the research track: `success`, `crash`, `out_of_road`, `route_completion` (`sim/env.py`)
+- [x] Hand-written lane follower as a reference driver (`sim/expert.py`)
+- [x] Tests: same seed gives the same run, raycasts hit hand-built geometry where expected, every sensor stays in `[0, 1]` under random settings changed mid-drive, observation shape never changes, lidar and radar see placed cars, radar misses hidden cars, the lane follower finishes routes
 
 **Exit:** at least 2,000 steps/s in one process on a laptop, and a hand-written lane follower completes routes.
+
+Measured with `python -m sim.env` on an Apple Silicon laptop: **2,825 steps/s** with every sensor on, and the lane follower finished **30/30 routes** at each traffic level tested (0, 0.1 and 0.3).
 
 ## Phase 2: Training
 
@@ -41,7 +44,7 @@ Each phase ends with an exit check that has to pass before the next one starts.
 
 ## Phase 3: Browser MVP
 
-- [ ] Web Worker that loads Pyodide, numpy and `sim/`, then steps env + policy at 20 Hz
+- [ ] Web Worker that loads Pyodide, numpy and `sim/`, then steps env + policy at 10 Hz (the sim's step is 0.1 s; rendering interpolates between steps)
 - [ ] three.js scene: road mesh, cars, chase camera, lidar rays drawn live
 - [ ] Sensor panel: toggles and sliders that apply mid-drive
 - [ ] HUD: speed, route progress, crash/off-road status
@@ -99,4 +102,4 @@ These carry over from the original plan and run alongside the phases above:
 
 - Real hardware
 - A server-side simulator: it would cost money, limit concurrent users, and add lag
-- Language or vision-language models in the control loop: too slow for 20 Hz control, and they work on objects that have already been detected, which hides the sensor question
+- Language or vision-language models in the control loop: too slow for 10 Hz control, and they work on objects that have already been detected, which hides the sensor question
