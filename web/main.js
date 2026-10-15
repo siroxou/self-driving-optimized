@@ -13,7 +13,10 @@ const SETTING_LABELS = {
   noise: "noise", dropout: "dropout", beams: "beams", tracks: "tracks",
   range: "range (m)", jitter: "jitter (m)", drift: "drift (m/step)",
 };
-const SCENARIO_LABELS = { lanes: "lanes", complexity: "bendiness", traffic: "traffic", parked: "parked share" };
+const SCENARIO_LABELS = {
+  lanes: "lanes", complexity: "bendiness", traffic: "traffic", parked: "parked share",
+  pedestrians: "crossings per km", obstacles: "debris per km", potholes: "potholes per km",
+};
 const SHORT = { odom: "Odometry", lane: "Camera", nav: "Route", gps: "GPS", lidar: "Lidar", sonar: "Sonar", radar: "Radar" };
 const DRIVER_NOTES = {
   generalist: "One neural network trained with random sensor setups. It sees only the sensors switched on below, and copes with some setups better than others.",
@@ -25,7 +28,10 @@ const DRIVER_NOTES = {
 const specialistsReady = fetch("models/specialists.json", { cache: "no-cache" })
   .then((r) => (r.ok ? r.json() : []))
   .catch(() => []);
-const END_TEXT = { crash: "Crashed", out_of_road: "Left the road", success: "Arrived", timeout: "Out of time" };
+const END_TEXT = {
+  crash: "Crashed", out_of_road: "Left the road", success: "Arrived", timeout: "Out of time",
+  hit_pedestrian: "Hit a pedestrian", damaged: "Damaged by a pothole",
+};
 
 const v3 = (x, y, h = 0) => new THREE.Vector3(x, h, -y);
 const $ = (id) => document.getElementById(id);
@@ -67,7 +73,50 @@ function carMesh(color, opacity = 1) {
 const ego = carMesh(COLORS.ego);
 const ghost = carMesh(COLORS.gps, 0.5);
 scene.add(ego, ghost);
-const trafficMeshes = [];
+const trafficMeshes = [], pedMeshes = [];
+let potholeMeshes = [];
+
+function pedMesh(i) {
+  const g = new THREE.Group();
+  const shirt = [0xd94f4f, 0x4f7fd9, 0xe0b341, 0x6bbf59, 0x9a5fd0][i % 5];
+  const body = new THREE.Mesh(new THREE.CapsuleGeometry(0.22, 0.85, 4, 8), new THREE.MeshLambertMaterial({ color: shirt }));
+  body.position.y = 0.65;
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), new THREE.MeshLambertMaterial({ color: 0xe8c39e }));
+  head.position.y = 1.45;
+  g.add(body, head);
+  return g;
+}
+
+function hazardMeshes(road, group) {
+  const white = new THREE.MeshLambertMaterial({ color: 0xf2f2f2 });
+  for (const [x, y, h] of road.crosswalks) {  // zebra stripes across the whole road
+    const nx = -Math.sin(h), ny = Math.cos(h);
+    for (let lat = -road.width / 2 + 0.6; lat < road.width / 2 - 0.3; lat += 1.1) {
+      const stripe = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.02, 0.55), white);
+      stripe.position.copy(v3(x + nx * lat, y + ny * lat, 0.04));
+      stripe.rotation.y = h;
+      group.add(stripe);
+    }
+  }
+  const cone = new THREE.MeshLambertMaterial({ color: 0xff6a1a }), load = new THREE.MeshLambertMaterial({ color: 0x8a6a45 });
+  for (const [x, y, h, size] of road.obstacles) {
+    const m = size < 1
+      ? new THREE.Mesh(new THREE.ConeGeometry(0.25, 0.75, 12), cone)
+      : new THREE.Mesh(new THREE.BoxGeometry(size, 0.9, size), load);
+    m.position.copy(v3(x, y, size < 1 ? 0.38 : 0.45));
+    m.rotation.y = h + (size < 1 ? 0 : 0.4);
+    group.add(m);
+  }
+  potholeMeshes = road.potholes.map(([x, y, r], i) => {
+    const m = new THREE.Mesh(new THREE.CircleGeometry(r, 14), new THREE.MeshLambertMaterial({ color: 0x17181b }));
+    m.rotation.x = -Math.PI / 2;
+    m.scale.set(1 + 0.25 * Math.sin(i * 7.1), 1, 1);  // a little irregular
+    m.position.copy(v3(x, y, 0.03));
+    group.add(m);
+    return m;
+  });
+}
+
 const radarBoxes = Array.from({ length: 8 }, () => {
   const box = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(5.1, 2.2, 2.5)), new THREE.LineBasicMaterial({ color: COLORS.radar }));
   box.visible = false;
@@ -128,6 +177,7 @@ function buildRoad(road) {
   banner.position.copy(v3(dx, dy, 4.6));
   banner.rotation.y = dh;
   roadGroup.add(banner);
+  hazardMeshes(road, roadGroup);
   scene.add(roadGroup);
 }
 
@@ -181,17 +231,35 @@ function draw(t, dt) {
   });
   for (let i = curr.traffic.length; i < trafficMeshes.length; i++) trafficMeshes[i].visible = false;
 
+  const peds = curr.pedestrians || [];
+  peds.forEach((ped, i) => {
+    if (!pedMeshes[i]) scene.add((pedMeshes[i] = pedMesh(i)));
+    const q = prev?.pedestrians?.[i] || ped;
+    pedMeshes[i].position.copy(v3(q[0] + (ped[0] - q[0]) * t, q[1] + (ped[1] - q[1]) * t));
+    pedMeshes[i].rotation.y = ped[2];
+    pedMeshes[i].visible = true;
+  });
+  for (let i = peds.length; i < pedMeshes.length; i++) pedMeshes[i].visible = false;
+  for (const i of curr.holesHit || []) potholeMeshes[i]?.material.color.setHex(0x8a2b2b);  // potholes you hit turn red
+
   // rays are measured from the latest pose; shift them with the drawn car so they stay attached
   setRays(lidarLines, curr.lidar, cfg.lidar.range, p);
   setRays(sonarLines, curr.sonar, cfg.sonar.range, p);
 
+  // radar targets: a car-sized box on cars, a person-sized one on pedestrians
   const tracked = curr.radar || [];
   radarBoxes.forEach((box, i) => {
-    const m = trafficMeshes[tracked[i]];
-    box.visible = i < tracked.length && !!m;
-    if (box.visible) {
-      box.position.copy(m.position).setY(1.1);
-      box.rotation.y = m.rotation.y;
+    box.visible = i < tracked.length;
+    if (!box.visible) return;
+    const [x, y] = tracked[i];
+    const car = curr.traffic.findIndex((c) => Math.hypot(c[0] - x, c[1] - y) < 0.5);
+    if (car >= 0) {
+      box.position.copy(trafficMeshes[car].position).setY(1.1);
+      box.rotation.y = trafficMeshes[car].rotation.y;
+      box.scale.set(1, 1, 1);
+    } else {
+      box.position.copy(v3(x, y, 0.95));
+      box.scale.set(0.2, 0.9, 0.36);
     }
   });
 
@@ -252,6 +320,7 @@ function fmt(v, step) {
 }
 
 function slider(container, label, value, lo, hi, isInt, onInput, onChange) {
+  // returns set(v): move the slider without firing its handlers
   const id = `s-${Math.random().toString(36).slice(2, 8)}`;
   const step = isInt ? 1 : (hi - lo) / 100;
   const wrap = document.createElement("div");
@@ -265,9 +334,26 @@ function slider(container, label, value, lo, hi, isInt, onInput, onChange) {
   });
   if (onChange) input.addEventListener("change", () => onChange(Number(input.value)));
   container.appendChild(wrap);
+  return (v) => {
+    input.value = v;
+    out.textContent = fmt(v, step);
+  };
 }
 
-function buildControls({ defaults, ranges, scenario: sc, scenarioRanges }) {
+const scenarioSliders = {};
+
+function buildControls({ defaults, ranges, scenario: sc, scenarioRanges, levels: lv }) {
+  levels = lv;
+  for (const [name, spec] of Object.entries(levels)) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.dataset.level = name;
+    b.setAttribute("aria-pressed", "false");
+    b.textContent = spec.title;
+    b.addEventListener("click", () => startLevel(name));
+    $("levels").appendChild(b);
+  }
+  document.querySelector('[data-level="free"]').addEventListener("click", () => startLevel(null));
   cfg = structuredClone(defaults);
   scenario = { ...sc };
   const box = $("sensors");
@@ -289,7 +375,8 @@ function buildControls({ defaults, ranges, scenario: sc, scenarioRanges }) {
     box.appendChild(el);
   }
   for (const [key, [lo, hi]] of Object.entries(scenarioRanges)) {
-    slider($("scenario"), SCENARIO_LABELS[key] || key, sc[key], lo, hi, key === "lanes", null, (v) => {
+    scenarioSliders[key] = slider($("scenario"), SCENARIO_LABELS[key] || key, sc[key], lo, hi, key === "lanes", null, (v) => {
+      if (level) startLevel(null);  // levels are fixed; editing the road means free driving
       scenario[key] = v;
       reset();
     });
@@ -298,11 +385,47 @@ function buildControls({ defaults, ranges, scenario: sc, scenarioRanges }) {
 
 function reset() {
   clearTimeout(endTimer);
+  endTimer = null;
   $("banner").hidden = true;
   $("seed").value = seed;
   $("hud-seed").textContent = seed;
   prev = curr = null;
-  worker.postMessage({ type: "reset", seed, scenario });
+  worker.postMessage({ type: "reset", seed, scenario, horizon: level ? level.horizon : 1500 });
+}
+
+// ---------- levels: a fixed list of roads, scored as you go ----------
+let levels = {}, level = null, levelIndex = 0, tally = null, freeScenario = null, levelDone = false;
+
+function startLevel(name) {
+  levelDone = false;
+  pressGroup("data-level", document.querySelector(`[data-level="${name || "free"}"]`));
+  if (!name) {
+    if (level) scenario = { ...freeScenario };
+    level = null;
+    $("hud-level").hidden = true;
+    $("level-note").textContent = "Any road you like. Pick a level for a fixed set of roads with pedestrians, debris and potholes, scored as you go.";
+  } else {
+    if (!level) freeScenario = { ...scenario };
+    level = levels[name];
+    scenario = { ...scenario, ...level.scenario };
+    levelIndex = 0;
+    tally = { success: 0, crash: 0, out_of_road: 0, hit_pedestrian: 0, damaged: 0, timeout: 0, potholes: 0 };
+    seed = level.seeds[0];
+    $("level-note").textContent = `${level.description} ${level.seeds.length} fixed roads; switching a sensor on or off restarts the level.`;
+    $("hud-level").hidden = false;
+    showTally();
+  }
+  for (const [k, set] of Object.entries(scenarioSliders)) set(scenario[k]);
+  reset();
+}
+
+function showTally() {
+  const n = level.seeds.length, done = Object.values(tally).reduce((a, b) => a + b, 0) - tally.potholes;
+  const parts = [`<b>${level.title}</b> road ${Math.min(levelIndex + 1, n)}/${n}`, `${tally.success} arrived`];
+  const extra = { hit_pedestrian: "pedestrians hit", crash: "crashes", damaged: "damaged", out_of_road: "off road", timeout: "out of time" };
+  for (const [k, label] of Object.entries(extra)) if (tally[k]) parts.push(`${tally[k]} ${label}`);
+  parts.push(`${tally.potholes} pothole${tally.potholes === 1 ? "" : "s"}`);
+  $("hud-level").innerHTML = parts.join(" · ") + (done === n ? `<br><b>Score: ${Math.round((100 * tally.success) / n)}%</b>` : "");
 }
 
 function onFrame(frame) {
@@ -313,14 +436,30 @@ function onFrame(frame) {
   $("hud-progress").style.width = `${(frame.progress * 100).toFixed(1)}%`;
   $("hud-progress").parentElement.setAttribute("aria-valuenow", Math.round(frame.progress * 100));
   $("hud-status").textContent = frame.status === "driving" ? "Driving" : END_TEXT[frame.status];
-  if (frame.status !== "driving" && !endTimer) {
+  $("hud-holes").textContent = frame.potholes ? ` · ${frame.potholes} pothole${frame.potholes > 1 ? "s" : ""}` : "";
+  if (frame.status !== "driving" && !endTimer && !levelDone) {
     const banner = $("banner");
     banner.textContent = END_TEXT[frame.status];
     banner.className = frame.status === "success" ? "ok" : "bad";
     banner.hidden = false;
+    if (level) {
+      tally[frame.status] += 1;
+      tally.potholes += frame.potholes;
+      showTally();
+    }
     endTimer = setTimeout(() => {
       endTimer = null;
-      seed += 1;
+      if (!level) seed += 1;
+      else if (++levelIndex < level.seeds.length) {
+        seed = level.seeds[levelIndex];
+        showTally();
+      }
+      else {  // level finished: leave the score up; pick the level again to replay
+        levelDone = true;
+        banner.textContent = `${level.title} done: ${tally.success} of ${level.seeds.length} roads`;
+        banner.className = "ok";
+        return;
+      }
       reset();
     }, 2000);
   }
@@ -356,10 +495,12 @@ worker.onmessage = ({ data: msg }) => {
 };
 
 $("new-road").addEventListener("click", () => {
+  if (level) startLevel(null);
   seed = Math.floor(Math.random() * 100000);
   reset();
 });
 $("seed").addEventListener("change", (e) => {
+  if (level) startLevel(null);
   seed = Math.max(0, Math.floor(Number(e.target.value) || 0));
   reset();
 });
@@ -376,6 +517,19 @@ function setSensor(name, on) {
   box.closest(".sensor").classList.toggle("off", !on);
   worker.postMessage({ type: "config", sensors: { [name]: { on } } });
   updateDriver();
+  restartLevelSoon();
+}
+
+// A level score belongs to one sensor setup and driver, so changing either restarts it.
+// Batched, so a preset that flips several sensors restarts it once.
+let restartQueued = false;
+function restartLevelSoon() {
+  if (!level || restartQueued) return;
+  restartQueued = true;
+  queueMicrotask(() => {
+    restartQueued = false;
+    if (level) startLevel(Object.keys(levels).find((k) => levels[k] === level));
+  });
 }
 
 function driverLabel(model) {
@@ -429,6 +583,7 @@ document.querySelectorAll("[data-driver]").forEach((b) => b.addEventListener("cl
   pressGroup("data-driver", b);
   driverMode = b.dataset.driver;
   updateDriver();
+  restartLevelSoon();
 }));
 
 function pressGroup(attr, button) {

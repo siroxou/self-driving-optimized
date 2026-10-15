@@ -6,7 +6,7 @@
 
 importScripts("https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js");
 
-const SIM_FILES = ["__init__.py", "world.py", "car.py", "traffic.py", "sensors.py", "env.py", "expert.py", "policy.py"];
+const SIM_FILES = ["__init__.py", "world.py", "car.py", "traffic.py", "sensors.py", "env.py", "expert.py", "policy.py", "hazards.py", "levels.py"];
 const STEP_MS = 100; // the sim's 0.1 s step in real time
 
 let py, bridge;
@@ -37,7 +37,7 @@ onmessage = async ({ data: msg }) => {
   await ready;
   if (!bridge) return;
   if (msg.type === "reset") {
-    postMessage({ type: "road", data: bridge.reset(msg.seed, JSON.stringify(msg.scenario || {})) });
+    postMessage({ type: "road", data: bridge.reset(msg.seed, JSON.stringify(msg.scenario || {}), msg.horizon || 1500) });
     loop();
   } else if (msg.type === "driver") {
     let ok = true;

@@ -23,7 +23,8 @@
     <div class="progress" role="progressbar" aria-label="Route progress" aria-valuemin="0" aria-valuemax="100">
       <div id="hud-progress"></div>
     </div>
-    <div class="hud-small"><span id="hud-status">Driving</span> · road <span id="hud-seed">0</span></div>
+    <div class="hud-small"><span id="hud-status">Driving</span> · road <span id="hud-seed">0</span><span id="hud-holes"></span></div>
+    <div class="hud-level" id="hud-level" hidden></div>
     <div class="hud-driver" id="hud-driver"></div>
   </div>
 
@@ -51,6 +52,10 @@
 
     <section>
       <h2>Road</h2>
+      <div class="segmented" role="group" aria-label="Level" id="levels">
+        <button type="button" data-level="free" aria-pressed="true">Free drive</button>
+      </div>
+      <p class="note" id="level-note">Any road you like. Pick a level for a fixed set of roads with pedestrians, debris and potholes, scored as you go.</p>
       <div id="scenario"></div>
       <div class="row">
         <label for="seed">Road #</label>
