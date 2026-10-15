@@ -32,19 +32,28 @@ Each phase ends with an exit check that has to pass before the next one starts.
 
 Measured with `python -m sim.env` on an Apple Silicon laptop: **2,825 steps/s** with every sensor on, and the lane follower finished **30/30 routes** at each traffic level tested (0, 0.1 and 0.3).
 
-## Phase 2: Training
+## Phase 2: Training ← exit check not met, in review
 
-- [ ] PPO with vectorised envs
-- [ ] Specialist baseline on `odom,lidar,nav`
-- [ ] Generalist policy: sensors and their settings randomised every episode, with a curriculum that starts with everything on and drops sensors more often over time
-- [ ] Export to `.npz` and a numpy forward pass (`sim/policy.py`), with a test that torch and numpy outputs match to 1e-5
-- [ ] `train/benchmark.py`: fixed held-out seeds, numbers go in the README
+- [x] PPO with 12 parallel envs, reward scaling, KL limit (`train/train.py`)
+- [x] Specialist baseline on `odom,lidar,nav`: **90% success** on held-out roads
+- [x] Generalist policy: sensors and their settings randomised every episode, with a curriculum. 36% with all sensors, 56% on the specialist's set
+- [x] Export to `.npz` and a numpy forward pass (`sim/policy.py`), with a test that torch and numpy outputs match to 1e-5
+- [x] `train/benchmark.py`: 50 held-out roads per sensor set; tables in `results/`, write-up in [docs/training.md](docs/training.md#results)
+- [x] Trained models drive in the 3D viewer (driver switch: Trained / Specialist / Reference)
 
 **Exit:** the generalist reaches at least 80% success with all sensors on, on held-out maps, and stays within 10 points of the specialist on key sensor sets. If it doesn't, ship a small set of specialist models and switch between them in the UI.
 
-## Phase 3: Browser MVP ← 3D viewer built early, waiting on Phase 2
+**Status:** not met (36% and 56%). Training longer (30M steps) made it worse. Options, roughly cheapest first:
 
-A first 3D viewer (`web/`) was built ahead of Phase 2 so the simulator could be reviewed visually. It runs the real `sim/` in the page. Until there's a trained model, the reference lane follower drives, so the sensor switches change what's drawn but not how the car drives.
+- [ ] Fallback from the exit rule: train specialists for a handful of sensor sets (~5 min each) and switch model when the sensor set changes
+- [ ] Bigger crash penalty (e.g. −20 instead of −5) so speeding into traffic is properly punished
+- [ ] Keep the full sensor set in 50% of late-training episodes instead of 20%, and only randomise settings, not presence, in part of the rest
+- [ ] Larger network (3 × 512) for the generalist
+- [ ] Warm-start the generalist from the specialist instead of from scratch
+
+## Phase 3: Browser MVP ← mostly done, waiting on a better generalist and deployment
+
+The 3D viewer (`web/`) runs the real `sim/` in the page, driven by a trained network by default.
 
 - [x] Web Worker that loads Pyodide, numpy and `sim/`, then steps the env at 10 Hz (the sim's step is 0.1 s; rendering interpolates between steps)
 - [x] three.js scene: road mesh, cars, finish gate, chase / top-down / free cameras
@@ -54,7 +63,7 @@ A first 3D viewer (`web/`) was built ahead of Phase 2 so the simulator could be 
 - [x] HUD: speed, route progress, crash/off-road status; next road starts automatically
 - [x] Loading screen (Pyodide is about 10 MB on first visit, cached after that)
 - [x] Mobile layout: controls in a bottom drawer
-- [ ] Drive with the trained policy from Phase 2 instead of the lane follower
+- [x] Drive with trained policies from Phase 2 (driver switch), loaded in the browser and run with numpy
 - [ ] GitHub Pages deploy through Actions
 
 **Exit:** the public URL loads in under 10 s on broadband, runs at 30 fps on a mid-range laptop, and switching any sensor visibly changes how the car drives.

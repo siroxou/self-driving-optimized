@@ -27,6 +27,12 @@ How each one is modelled, and what it gets wrong compared with real hardware, is
 
 ## 3D viewer
 
+![Chase view: the trained network driving with lidar rays, radar track boxes and the control panel](docs/images/viewer-chase.png)
+
+| Top-down, with noisy GPS | Phone |
+|---|---|
+| ![Top-down view: the green ghost car shows where GPS thinks the car is, several metres off the road](docs/images/viewer-topdown-gps.png) | ![Phone layout with the control drawer open](docs/images/viewer-phone-controls.png) |
+
 The simulator runs in the browser through Pyodide and is drawn in 3D with three.js. From the repo root:
 
 ```bash
@@ -40,7 +46,15 @@ Open http://localhost:8000/web/. The first load downloads about 10 MB of Python 
 - change lanes, bendiness, traffic and parked cars, or jump to any road number
 - switch between chase, top-down and free cameras, and run at 1×, 2× or 4×
 
-For now the car is driven by a reference lane follower that reads the simulator directly, so switching sensors changes what you see but not how it drives. Trained policies that depend on the sensors come in Phase 2 of the [roadmap](ROADMAP.md).
+Pick who drives:
+
+| Driver | What it is |
+|---|---|
+| **Trained** (default) | a neural network trained with random sensor setups. It sees only the sensors you switch on, so turning them off really changes how it drives |
+| **Specialist** | a neural network trained only with odometry, lidar and exact route. Strong on that setup, lost on others |
+| **Reference** | a hand-written lane follower that reads the simulator directly. It ignores the sensors; useful to see what "perfect" looks like |
+
+How the networks are trained and how well they score is in [docs/training.md](docs/training.md).
 
 ## Browser simulator quickstart
 
@@ -89,17 +103,32 @@ The method, metrics and expected running times are in [research/experiment.md](r
 
 ## Results
 
-Pending the first full run.
+Success rate on 50 unseen roads per sensor set (full tables and discussion in [docs/training.md](docs/training.md#results)):
+
+| Sensors | Specialist (trained on `odom,lidar,nav`) | Generalist (trained on random setups) |
+|---|---|---|
+| everything on | 0% | 36% |
+| `odom,lidar,nav` | **90%** | 56% |
+| `odom,lidar,gps` | 88% | **86%** |
+| `odom,lidar` | 78% | 0% |
+| `lidar` | 42% | 36% |
+| `odom,lane,nav` | 0% (drives off the road) | 0% (stays on the road, hits traffic) |
+| `odom` | 0% | 0% |
+
+So far: lidar is the sensor that matters most on these roads, and a network trained on one sensor set does well on it. One network that handles every setup isn't there yet; [ROADMAP.md](ROADMAP.md) lists what's next. The MetaDrive research track hasn't had its full run yet.
 
 ## Layout
 
 ```
-sim/                 browser simulator: roads, car, traffic, sensors, gym env (Python + numpy)
-web/                 3D viewer: three.js scene, controls, Pyodide worker
+sim/                 browser simulator: roads, car, traffic, sensors, gym env, numpy policy runner
+train/               PPO training, export to numpy, benchmark
+web/                 3D viewer: three.js scene, controls, Pyodide worker, trained models
+results/             benchmark tables
 tests/               simulator tests
 research/            MetaDrive study: sensors, training, evaluation, ablation
 docs/sensors.md      sensor definitions shared by both parts
 docs/web.md          browser playground architecture
+docs/training.md     how the driving networks are trained and scored
 ROADMAP.md           phases and exit criteria
 ```
 
